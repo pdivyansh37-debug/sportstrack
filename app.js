@@ -41,6 +41,7 @@ const state = {
   showSkeleton: true,
   showAngles: true,
   showGrid: true,
+  errorHighlightOnly: true, // Show points ONLY on joints with bad posture/valgus flaw
   isCalibrated: false,
   isCalibrating: false,
   calibrationCount: 0,
@@ -119,6 +120,7 @@ const elements = {
   toggleAnglesBtn: document.getElementById('toggleAngles'),
   toggleGridBtn: document.getElementById('toggleGrid'),
   toggleSilhouetteBtn: document.getElementById('toggleSilhouette'),
+  toggleErrorOnlyBtn: document.getElementById('toggleErrorOnly'),
   toggleVoiceBtn: document.getElementById('toggleVoiceBtn'),
   
   gaugeNum: document.getElementById('gaugeNum'),
@@ -283,6 +285,15 @@ function setupEventListeners() {
     elements.toggleSilhouetteBtn.addEventListener('click', () => {
       state.showSilhouette = !state.showSilhouette;
       elements.toggleSilhouetteBtn.classList.toggle('active', state.showSilhouette);
+    });
+  }
+
+  if (elements.toggleErrorOnlyBtn) {
+    elements.toggleErrorOnlyBtn.addEventListener('click', () => {
+      state.errorHighlightOnly = !state.errorHighlightOnly;
+      elements.toggleErrorOnlyBtn.classList.toggle('active', state.errorHighlightOnly);
+      elements.toggleErrorOnlyBtn.textContent = state.errorHighlightOnly ? '🔴 Error-Only Points: ON' : '⚪ All 33 Points: ON';
+      voiceCoach.speak(state.errorHighlightOnly ? 'Error focus mode active' : 'Showing all keypoints');
     });
   }
 
@@ -1378,7 +1389,7 @@ function drawCenterAlignmentGrid(c, w, h, lm, videoElem, isMirrored) {
 }
 
 /**
- * Draws Biomechanical Skeleton with Glowing Joints
+ * Draws Biomechanical Skeleton with Selective Error Point Highlighting
  */
 function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored) {
   const connections = [
@@ -1400,6 +1411,12 @@ function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored)
 
   c.save();
 
+  // Evaluate which specific joints have posture flaws
+  const isLeftKneeError = riskData.collapseLeft > 8 || riskData.valgusLeft < 168;
+  const isRightKneeError = riskData.collapseRight > 8 || riskData.valgusRight < 168;
+  const isTrunkError = riskData.trunkLean > 12;
+
+  // 1. Draw connecting bone lines
   connections.forEach(([i1, i2]) => {
     const lm1 = lm[i1];
     const lm2 = lm[i2];
@@ -1409,8 +1426,12 @@ function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored)
     const p2 = mapLandmarkToCanvas(lm2, w, h, videoElem, isMirrored);
 
     let boneColor = '#06b6d4';
-    if (i1 === POSE_LANDMARKS.LEFT_KNEE || i2 === POSE_LANDMARKS.LEFT_KNEE ||
-        i1 === POSE_LANDMARKS.RIGHT_KNEE || i2 === POSE_LANDMARKS.RIGHT_KNEE) {
+    if ((i1 === POSE_LANDMARKS.LEFT_KNEE || i2 === POSE_LANDMARKS.LEFT_KNEE) && isLeftKneeError) {
+      boneColor = '#ef4444';
+    } else if ((i1 === POSE_LANDMARKS.RIGHT_KNEE || i2 === POSE_LANDMARKS.RIGHT_KNEE) && isRightKneeError) {
+      boneColor = '#ef4444';
+    } else if ((i1 === POSE_LANDMARKS.LEFT_KNEE || i2 === POSE_LANDMARKS.LEFT_KNEE ||
+        i1 === POSE_LANDMARKS.RIGHT_KNEE || i2 === POSE_LANDMARKS.RIGHT_KNEE)) {
       boneColor = riskData.color;
     }
 
@@ -1423,49 +1444,111 @@ function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored)
     c.stroke();
   });
 
+  // 2. Draw Joint Points (Error-Only: Only show red dot on faulty joint!)
   lm.forEach((pt, idx) => {
     if (idx > 32 || (pt.visibility && pt.visibility < 0.35)) return;
     if (idx > 0 && idx < 11 && idx !== 7 && idx !== 8) return;
 
+    const isThisJointInError = 
+      (idx === POSE_LANDMARKS.LEFT_KNEE && isLeftKneeError) ||
+      (idx === POSE_LANDMARKS.RIGHT_KNEE && isRightKneeError) ||
+      ((idx === POSE_LANDMARKS.LEFT_SHOULDER || idx === POSE_LANDMARKS.RIGHT_SHOULDER) && isTrunkError);
+
+    // If Error-Only mode is enabled, SKIP drawing points if this joint is in correct posture!
+    if (state.errorHighlightOnly && !isThisJointInError) {
+      return;
+    }
+
     const p = mapLandmarkToCanvas(pt, w, h, videoElem, isMirrored);
 
-    c.fillStyle = 'rgba(6, 182, 212, 0.3)';
-    c.beginPath();
-    c.arc(p.x, p.y, 9, 0, 2 * Math.PI);
-    c.fill();
+    if (isThisJointInError) {
+      // Flashing Pulsing RED Warning Beacon
+      const pulseTime = performance.now() / 150;
+      const rippleRadius = 10 + (Math.sin(pulseTime) + 1) * 7;
 
-    c.fillStyle = '#ffffff';
-    c.beginPath();
-    c.arc(p.x, p.y, 5, 0, 2 * Math.PI);
-    c.fill();
+      // Outer animated ripple ring
+      c.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+      c.lineWidth = 2.5;
+      c.beginPath();
+      c.arc(p.x, p.y, rippleRadius, 0, 2 * Math.PI);
+      c.stroke();
 
-    c.strokeStyle = '#06b6d4';
-    c.lineWidth = 2;
-    c.beginPath();
-    c.arc(p.x, p.y, 6.5, 0, 2 * Math.PI);
-    c.stroke();
+      // Glowing red halo
+      c.fillStyle = 'rgba(239, 68, 68, 0.45)';
+      c.beginPath();
+      c.arc(p.x, p.y, 11, 0, 2 * Math.PI);
+      c.fill();
+
+      // Bright solid red core
+      c.fillStyle = '#ff2a2a';
+      c.beginPath();
+      c.arc(p.x, p.y, 6.5, 0, 2 * Math.PI);
+      c.fill();
+
+      c.strokeStyle = '#ffffff';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(p.x, p.y, 7.5, 0, 2 * Math.PI);
+      c.stroke();
+    } else {
+      // Normal joint dot (when viewing all keypoints)
+      c.fillStyle = 'rgba(6, 182, 212, 0.3)';
+      c.beginPath();
+      c.arc(p.x, p.y, 9, 0, 2 * Math.PI);
+      c.fill();
+
+      c.fillStyle = '#ffffff';
+      c.beginPath();
+      c.arc(p.x, p.y, 5, 0, 2 * Math.PI);
+      c.fill();
+
+      c.strokeStyle = '#06b6d4';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(p.x, p.y, 6.5, 0, 2 * Math.PI);
+      c.stroke();
+    }
   });
 
   c.restore();
 }
 
 /**
- * Draws Floating Angle Badges on Knees
+ * Draws Floating Angle Badges on Knees (Only appears on faulty joints in Error-Only mode)
  */
 function drawAngleAnnotations(c, w, h, lm, riskData, videoElem, isMirrored) {
   const lKnee = lm[POSE_LANDMARKS.LEFT_KNEE];
   const rKnee = lm[POSE_LANDMARKS.RIGHT_KNEE];
+  const isLeftKneeError = riskData.collapseLeft > 8 || riskData.valgusLeft < 168;
+  const isRightKneeError = riskData.collapseRight > 8 || riskData.valgusRight < 168;
 
   c.save();
 
+  // Left Knee Badge (Only shown if in error or full mode)
   if (lKnee && (!lKnee.visibility || lKnee.visibility > 0.4)) {
-    const p = mapLandmarkToCanvas(lKnee, w, h, videoElem, isMirrored);
-    drawBadge(c, p.x + 15, p.y, `L: ${riskData.valgusLeft}°`, riskData.collapseLeft > 10 ? '#ef4444' : '#10b981');
+    if (!state.errorHighlightOnly || isLeftKneeError) {
+      const p = mapLandmarkToCanvas(lKnee, w, h, videoElem, isMirrored);
+      const isBad = isLeftKneeError;
+      drawBadge(c, p.x + 15, p.y, `${isBad ? '⚠️ ' : ''}L: ${riskData.valgusLeft}°`, isBad ? '#ef4444' : '#10b981');
+    }
   }
 
+  // Right Knee Badge (Only shown if in error or full mode)
   if (rKnee && (!rKnee.visibility || rKnee.visibility > 0.4)) {
-    const p = mapLandmarkToCanvas(rKnee, w, h, videoElem, isMirrored);
-    drawBadge(c, p.x - 80, p.y, `R: ${riskData.valgusRight}°`, riskData.collapseRight > 10 ? '#ef4444' : '#10b981');
+    if (!state.errorHighlightOnly || isRightKneeError) {
+      const p = mapLandmarkToCanvas(rKnee, w, h, videoElem, isMirrored);
+      const isBad = isRightKneeError;
+      drawBadge(c, p.x - 90, p.y, `${isBad ? '⚠️ ' : ''}R: ${riskData.valgusRight}°`, isBad ? '#ef4444' : '#10b981');
+    }
+  }
+
+  // Trunk Sway Badge (Only appears if posture tilts)
+  if (riskData.trunkLean > 12) {
+    const nose = lm[POSE_LANDMARKS.NOSE];
+    if (nose) {
+      const p = mapLandmarkToCanvas(nose, w, h, videoElem, isMirrored);
+      drawBadge(c, p.x + 20, p.y, `⚠️ Lean: ${riskData.trunkLean}°`, '#ef4444');
+    }
   }
 
   c.restore();
