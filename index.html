@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ACL‑Shield & AdaptiFit • AI Sports Biomechanics & Inclusive Coach</title>
+  <meta name="description" content="Real-time AI knee valgus and ACL injury risk screener with multi-sport biomechanics, inclusive adaptive fitness coaching, and instant incident alert dispatch." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- MediaPipe Pose Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+  <!-- Chart.js for Live Biomechanical Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
+
+  <!-- SheetJS for Native Multi-Sheet Excel (.xlsx) Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <header class="app-header">
+    <div class="brand-wrapper">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>ACL‑Shield • AdaptiFit</h1>
+        <div class="tagline">AI Kinematics & Inclusive Movement Lab</div>
+      </div>
+    </div>
+
+    <!-- Mode Selector Navigation -->
+    <nav class="mode-nav">
+      <button id="modeShield" class="mode-button active" title="Knee Valgus & ACL Injury Risk Screener">
+        <span>🛡️</span> ACL‑Shield
+      </button>
+      <button id="modeFit" class="mode-button" title="Inclusive Adaptive Fitness & Rehab Coach">
+        <span>♿</span> AdaptiFit Coach
+      </button>
+    </nav>
+
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <button id="athleteBadgeBtn" class="btn-icon" title="Manage Athlete Profiles & Longitudinal History">
+        👤 Demo Athlete (BASKETBALL)
+      </button>
+      <button id="alertsBtn" class="btn-icon" style="border-color: var(--rose-danger); color: var(--rose-danger);" title="Configure Critical Injury Risk Alerts & Dispatches">
+        🚨 Alerts & Dispatch
+      </button>
+      <button id="toggleVoiceBtn" class="btn-icon active">
+        🔊 Voice: Active
+      </button>
+      <button id="reportBtn" class="btn-icon" style="border-color: var(--cyan-primary); color: var(--cyan-primary);">
+        📋 Assessment Report
+      </button>
+    </div>
+  </header>
+
+  <!-- Sub-Header Control Ribbon -->
+  <div class="control-ribbon">
+    <div class="ribbon-left">
+      <div class="selector-group">
+        <label for="sportSelect">Sport Mode:</label>
+        <select id="sportSelect" class="custom-select">
+          <option value="basketball">🏀 Basketball (Rebounds & Cuts)</option>
+          <option value="football">⚽ Football / Soccer (Plant & COD)</option>
+          <option value="badminton">🏸 Badminton / Volleyball (Smash Landings)</option>
+          <option value="running">🏃 Athletics / Running (Gait & Cadence)</option>
+          <option value="skiing">🎿 Skiing (Eccentric Quad Load)</option>
+          <option value="general">🧘 General / Clinical Baseline</option>
+        </select>
+      </div>
+
+      <div class="selector-group">
+        <label for="exerciseSelect">Protocol:</label>
+        <select id="exerciseSelect" class="custom-select">
+          <option value="squat">Deep Squat Alignment</option>
+          <option value="drop_jump">Drop Vertical Jump (DVJ & LESS)</option>
+          <option value="single_leg_squat">Single-Leg Squat Stability</option>
+          <option value="lunge">Dynamic Forward Lunge</option>
+        </select>
+      </div>
+
+      <div id="abilityGroup" class="selector-group" style="display: none;">
+        <label for="abilitySelect">Ability Profile:</label>
+        <select id="abilitySelect" class="custom-select">
+          <option value="general">Standard Adaptive Calisthenics</option>
+          <option value="seated">Seated & Wheelchair Friendly</option>
+          <option value="rehab">Upper Limb Mobility & Stroke Rehab</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="input-source-group">
+      <label>Video Source:</label>
+      <button id="sourceDemoBtn" class="source-btn active">⚡ Demo Simulation</button>
+      <button id="sourceCameraBtn" class="source-btn">📹 Live Webcam</button>
+      <button id="sourceUploadBtn" class="source-btn">📁 Upload Video</button>
+      <input type="file" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime" style="display: none;" />
+      <button id="toggleFlawBtn" class="source-btn" style="border-color: var(--amber-warn); color: var(--amber-warn);">✨ Perfect Form: ON</button>
+      <button id="mirrorToggleBtn" class="source-btn" style="display: none; border-color: var(--cyan-primary); color: var(--cyan-primary);">🪞 Mirrored: ON</button>
+      <button id="calibrateBtn" class="source-btn" style="display: none; border-color: var(--purple-accent); color: #fff; background: rgba(139, 92, 246, 0.25);">⏱️ Calibrate Body</button>
+    </div>
+  </div>
+
+  <!-- Main Application Body -->
+  <main class="app-main">
+    <!-- Left Column: Video Viewport & Overlays -->
+    <section class="viewport-card">
+      <div class="viewport-header">
+        <div class="viewport-title">
+          <span>Real-Time Biomechanical Stream</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div id="framingPill" class="hud-pill" style="border-color: var(--emerald-safe); color: var(--emerald-safe);">
+            🎯 Body Position Target Active
+          </div>
+          <div class="live-badge">
+            <span class="live-dot"></span>
+            <span>AI Vision Active</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="video-container">
+        <!-- Floating HUD Overlays -->
+        <div class="video-hud-overlay">
+          <div class="hud-pill">
+            <span>⚡ Tracking: 33 Keypoints</span>
+          </div>
+          <div id="demoBadge" class="hud-pill demo-pill">
+            <span>Interactive Simulator Mode</span>
+          </div>
+          <div class="hud-pill">
+            <span id="fpsCounter">60 FPS</span>
+          </div>
+        </div>
+
+        <!-- Video Feeds -->
+        <video id="webcam" autoplay playsinline muted style="display: none;"></video>
+        <video id="videoUploadPlayer" playsinline loop muted style="display: none;"></video>
+        <canvas id="overlay"></canvas>
+      </div>
+
+      <!-- Video Scrubber & Slow-Mo Controls Bar -->
+      <div id="videoScrubberBar" class="video-scrubber-bar" style="display: none;">
+        <div class="scrubber-timeline-row">
+          <button id="playPauseBtn" class="btn-icon" style="padding: 4px 8px; font-size: 0.75rem;">⏸️ Pause</button>
+          <input type="range" id="videoTimeline" min="0" max="100" value="0" step="0.1" />
+          <span id="timeDisplay" style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">0.0s / 0.0s</span>
+        </div>
+        <div class="scrubber-controls-row">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button id="stepBackBtn" class="btn-icon" style="padding: 3px 8px; font-size: 0.72rem;">⏮️ Frame</button>
+            <button id="stepFwdBtn" class="btn-icon" style="padding: 3px 8px; font-size: 0.72rem;">Frame ⏭️</button>
+            <div class="speed-chips">
+              <span class="speed-chip" data-speed="0.25">0.25x (Slow-Mo)</span>
+              <span class="speed-chip" data-speed="0.5">0.5x</span>
+              <span class="speed-chip active" data-speed="1.0">1.0x</span>
+            </div>
+          </div>
+          <button id="freezePeakBtn" class="btn-freeze">⚡ Freeze at Peak Valgus</button>
+        </div>
+      </div>
+
+      <!-- Viewport Layer Controls Toolbar -->
+      <div class="viewport-toolbar">
+        <div class="layer-toggles">
+          <button id="toggleSilhouette" class="toggle-chip active">🎯 Silhouette Stencil</button>
+          <button id="toggleSkeleton" class="toggle-chip active">🦴 Skeleton</button>
+          <button id="toggleAngles" class="toggle-chip active">📐 Angle Badges</button>
+          <button id="toggleGrid" class="toggle-chip active">🌐 Center-of-Mass</button>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-dim);">
+          MediaPipe Pose WebGL • Sub-10ms Latency
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Telemetry & Risk Sidebar -->
+    <aside class="dashboard-sidebar">
+      <!-- Speedometer Risk Gauge -->
+      <div class="gauge-card">
+        <div id="gaugeLabel" class="gauge-title">ACL INJURY RISK GAUGE</div>
+        
+        <div class="gauge-container">
+          <svg class="gauge-svg" viewBox="0 0 200 110">
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="14" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#10b981" />
+                <stop offset="45%" stop-color="#f59e0b" />
+                <stop offset="75%" stop-color="#f97316" />
+                <stop offset="100%" stop-color="#ef4444" />
+              </linearGradient>
+            </defs>
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gaugeGradient)" stroke-width="14" stroke-linecap="round"/>
+            
+            <g id="gaugeNeedle" style="transform-origin: 100px 100px; transform: rotate(-90deg); transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
+              <line x1="100" y1="100" x2="100" y2="28" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="100" cy="100" r="7" fill="#ffffff"/>
+            </g>
+          </svg>
+
+          <div class="gauge-meter-value">
+            <div id="gaugeNum" class="gauge-num">0%</div>
+            <div id="gaugeStatusBadge" class="gauge-status-badge">Low Risk</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Coaching Directive Banner -->
+      <div class="feedback-card">
+        <div class="feedback-header">
+          <div class="feedback-title">
+            <span id="coachBeacon" class="coach-beacon"></span>
+            <span>Real-Time Biomechanical Coach</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Live Guidance</span>
+        </div>
+        <div id="feedbackText" class="feedback-content">
+          Optimal joint alignment! Biomechanics look safe.
+        </div>
+      </div>
+
+      <!-- Kinematics Telemetry Grid -->
+      <div class="telemetry-grid">
+        <div class="telemetry-card">
+          <span class="card-heading">Knee Valgus (L/R)</span>
+          <div class="card-stat">
+            <span id="valgusLeftVal">180°</span>
+            <span class="card-unit">/</span>
+            <span id="valgusRightVal">180°</span>
+          </div>
+          <span class="card-subtext">Frontal Plane Angle (FPPA)</span>
+        </div>
+
+        <div class="telemetry-card">
+          <span class="card-heading">Knee Flexion Depth</span>
+          <div class="card-stat">
+            <span id="flexionDepthVal">180°</span>
+          </div>
+          <span class="card-subtext">Absorption Angle</span>
+        </div>
+
+        <div class="telemetry-card">
+          <span class="card-heading">LESS Error Score</span>
+          <div class="card-stat">
+            <span id="lessScoreVal">0/15</span>
+          </div>
+          <span class="card-subtext">Landing Error System</span>
+        </div>
+
+        <div class="telemetry-card">
+          <span class="card-heading">Vertical Jump</span>
+          <div class="card-stat" style="color: var(--purple-accent);">
+            <span id="jumpHeightVal">0cm</span>
+          </div>
+          <span class="card-subtext">Estimated Height</span>
+        </div>
+
+        <div class="telemetry-card">
+          <span class="card-heading">Limb Asymmetry</span>
+          <div class="card-stat">
+            <span id="asymmetryVal">0%</span>
+          </div>
+          <span class="card-subtext">Bilateral Imbalance</span>
+        </div>
+
+        <div class="telemetry-card">
+          <span class="card-heading">Trunk Sway Lean</span>
+          <div class="card-stat">
+            <span id="trunkLeanVal">0°</span>
+          </div>
+          <span class="card-subtext">Lateral Lean Offset</span>
+        </div>
+
+        <div class="telemetry-card">
+          <span class="card-heading">Completed Reps</span>
+          <div class="card-stat" style="color: var(--cyan-primary);">
+            <span id="repCountVal">0</span>
+          </div>
+          <span class="card-subtext">Phase: <strong id="repPhaseBadge" style="color: #fff;">IDLE</strong></span>
+        </div>
+
+        <div class="telemetry-card">
+          <span class="card-heading">Range of Motion</span>
+          <div class="card-stat">
+            <span id="romPercentVal">0%</span>
+          </div>
+          <span class="card-subtext">Target Exercise ROM</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Lower Section: Analytics & Repetition History -->
+    <section class="analytics-section">
+      <div class="chart-card">
+        <div class="section-title-bar">
+          <h3>Real-Time Kinematic Waveform</h3>
+          <span style="font-size: 0.75rem; color: var(--text-dim);">Dynamic Valgus & Flexion Waveform</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="telemetryChart"></canvas>
+        </div>
+      </div>
+
+      <div class="history-card">
+        <div class="section-title-bar">
+          <h3>Repetition Log & Quality</h3>
+          <span style="font-size: 0.75rem; color: var(--text-dim);">Live Form Grade</span>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </div>
+    </section>
+
+    <!-- Global Action Bar -->
+    <footer class="action-bar">
+      <div class="action-btn-group">
+        <button id="downloadBtn" class="btn-primary" onclick="document.getElementById('reportBtn').click()">
+          <span>📋</span> View Clinical Report
+        </button>
+        <button id="downloadExcelBtn" class="btn-secondary" style="border-color: var(--emerald-safe); color: var(--emerald-safe);">
+          <span>📗</span> Export Excel (.xlsx)
+        </button>
+        <button id="downloadCsvBtn" class="btn-secondary">
+          <span>📊</span> Export CSV
+        </button>
+        <button id="downloadJsonBtn" class="btn-secondary">
+          <span>💾</span> Export JSON
+        </button>
+      </div>
+
+      <div>
+        <button id="resetBtn" class="btn-danger">
+          <span>🔄</span> Reset Session
+        </button>
+      </div>
+    </footer>
+  </main>
+
+  <!-- Alerts & Notification Dispatch Settings Modal -->
+  <div id="alertsModal" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 820px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.25rem;">🚨</span>
+          <h2>Critical Injury Alerts & Notification Dispatch</h2>
+        </div>
+        <button id="closeAlertsModalBtn" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem;">
+          <!-- Left: Alert Configuration -->
+          <div style="background: rgba(255, 255, 255, 0.02); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <h3 style="color: var(--rose-danger); font-size: 0.95rem; margin-bottom: 1rem;">⚙️ Alert Triggers & Channels</h3>
+
+            <!-- Threshold Slider -->
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <label>Injury Risk Alert Threshold:</label>
+                <strong id="alertThresholdValue" style="color: var(--rose-danger);">60%</strong>
+              </div>
+              <input type="range" id="alertThresholdSlider" min="30" max="90" value="60" step="5" style="width: 100%; accent-color: var(--rose-danger);" />
+              <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 4px;">Triggers alarm when knee valgus collapse or landing impact breaches this % level.</div>
+            </div>
+
+            <!-- Notification Channels -->
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem;">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
+                <input type="checkbox" id="enableDesktopNotifs" checked />
+                <span>📱 Browser Desktop Push Notifications</span>
+              </label>
+
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
+                <input type="checkbox" id="enableAudioSiren" checked />
+                <span>🚨 Emergency Audio Siren & Spoken Voice Alert</span>
+              </label>
+
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
+                <input type="checkbox" id="enableWebhookToggle" />
+                <span>💬 Webhook Dispatch (Slack / Discord / Clinic EHR API)</span>
+              </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label>Webhook URL (Optional):</label>
+              <input type="url" id="webhookUrlInput" class="form-input" placeholder="https://discord.com/api/webhooks/... or Slack Webhook" />
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label>Coach / Physiotherapist Email:</label>
+              <input type="email" id="coachEmailInput" class="form-input" placeholder="physio@sportsclinic.com" />
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button id="saveAlertSettingsBtn" class="btn-primary" style="flex: 1;">💾 Save Alert Settings</button>
+              <button id="requestNotifPermBtn" class="btn-secondary" style="font-size: 0.78rem;">🔔 Allow Push</button>
+              <button id="testAlertBtn" class="btn-danger" style="font-size: 0.78rem;">⚡ Test Alert</button>
+            </div>
+          </div>
+
+          <!-- Right: Live Incident History & Quick Send -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <h3 style="color: var(--cyan-primary); font-size: 0.95rem;">🚨 Recent Incident Log</h3>
+              <button id="sendEmailAlertBtn" class="btn-secondary" style="font-size: 0.72rem; padding: 4px 8px; border-color: var(--cyan-primary); color: var(--cyan-primary);">
+                📧 Email Alert
+              </button>
+            </div>
+            
+            <div id="incidentLogsList" class="incident-history-list" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Biomechanical Assessment Report Modal -->
+  <div id="reportModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <h2>Biomechanical Assessment Report</h2>
+          <div class="selector-group" style="margin-bottom: 0;">
+            <select id="reportFormatSelect" class="custom-select" style="font-size: 0.8rem; padding: 4px 10px;">
+              <option value="clinical">🩺 Clinical Orthopedic Report</option>
+              <option value="performance">⚡ Athletic Performance Summary</option>
+              <option value="patient">🏃 Patient / Athlete Summary Card</option>
+            </select>
+          </div>
+        </div>
+        <button id="closeModalBtn" class="modal-close-btn">&times;</button>
+      </div>
+      <div id="reportContent" class="modal-body"></div>
+      <div class="modal-footer">
+        <button id="modalExcelBtn" class="btn-secondary" style="border-color: var(--emerald-safe); color: var(--emerald-safe);">
+          <span>📗</span> Download Excel (.xlsx)
+        </button>
+        <button id="printReportBtn" class="btn-primary">
+          <span>🖨️</span> Print / Save PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Athlete Profile & History Management Modal -->
+  <div id="athleteModal" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 960px;">
+      <div class="modal-header">
+        <h2>Athlete Profile & Longitudinal Recovery History</h2>
+        <button id="closeAthleteModalBtn" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="athlete-profile-modal-grid">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <h3 style="color: var(--cyan-primary); font-size: 1rem;">Switch / Create Athlete Profile</h3>
+              <select id="athleteSelectDropdown" class="custom-select" style="max-width: 200px;"></select>
+            </div>
+            
+            <form id="athleteForm" style="background: rgba(255,255,255,0.02); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <div class="form-group">
+                <label>Athlete / Patient Full Name:</label>
+                <input type="text" id="newAthleteName" class="form-input" placeholder="e.g. Marcus Carter" required />
+              </div>
+              <div class="form-group">
+                <label>Primary Sport:</label>
+                <select id="newAthleteSport" class="custom-select form-input">
+                  <option value="basketball">Basketball</option>
+                  <option value="football">Football / Soccer</option>
+                  <option value="badminton">Badminton / Volleyball</option>
+                  <option value="running">Athletics / Track</option>
+                  <option value="skiing">Skiing / Winter Sports</option>
+                  <option value="general">General Fitness / Rehab</option>
+                </select>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                  <label>Position / Category:</label>
+                  <input type="text" id="newAthletePosition" class="form-input" placeholder="e.g. Point Guard" />
+                </div>
+                <div class="form-group">
+                  <label>Dominant Leg:</label>
+                  <select id="newAthleteLeg" class="custom-select form-input">
+                    <option value="Right">Right Leg</option>
+                    <option value="Left">Left Leg</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Injury History / Surgical Reconstruction:</label>
+                <input type="text" id="newAthleteInjury" class="form-input" placeholder="e.g. Right ACL Reconstruction 8 months ago" />
+              </div>
+              <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                <button type="submit" class="btn-primary" style="flex: 1;">💾 Save & Set Active Profile</button>
+                <button type="button" id="deleteAthleteBtn" class="btn-danger" style="padding: 8px 14px;">🗑️</button>
+              </div>
+            </form>
+          </div>
+
+          <div>
+            <h3 style="color: var(--cyan-primary); font-size: 1rem; margin-bottom: 0.75rem;">Session Progress Timeline</h3>
+            <div id="athleteSessionHistoryList" class="athlete-history-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

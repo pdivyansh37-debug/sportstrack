@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "name": "acl-shield-adaptifit",
+  "cleanUrls": true,
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
+}
