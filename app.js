@@ -1444,7 +1444,7 @@ function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored)
     c.stroke();
   });
 
-  // 2. Draw Joint Points (Error-Only: Only show red dot on faulty joint!)
+  // 2. Draw Joint Points (All joints visible; ONLY faulty posture joint turns glowing RED)
   lm.forEach((pt, idx) => {
     if (idx > 32 || (pt.visibility && pt.visibility < 0.35)) return;
     if (idx > 0 && idx < 11 && idx !== 7 && idx !== 8) return;
@@ -1454,20 +1454,15 @@ function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored)
       (idx === POSE_LANDMARKS.RIGHT_KNEE && isRightKneeError) ||
       ((idx === POSE_LANDMARKS.LEFT_SHOULDER || idx === POSE_LANDMARKS.RIGHT_SHOULDER) && isTrunkError);
 
-    // If Error-Only mode is enabled, SKIP drawing points if this joint is in correct posture!
-    if (state.errorHighlightOnly && !isThisJointInError) {
-      return;
-    }
-
     const p = mapLandmarkToCanvas(pt, w, h, videoElem, isMirrored);
 
     if (isThisJointInError) {
-      // Flashing Pulsing RED Warning Beacon
-      const pulseTime = performance.now() / 150;
-      const rippleRadius = 10 + (Math.sin(pulseTime) + 1) * 7;
+      // Flashing Pulsing RED Warning Beacon on Faulty Joint
+      const pulseTime = performance.now() / 140;
+      const rippleRadius = 10 + (Math.sin(pulseTime) + 1) * 8;
 
-      // Outer animated ripple ring
-      c.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+      // Outer animated ripple wave
+      c.strokeStyle = 'rgba(239, 68, 68, 0.8)';
       c.lineWidth = 2.5;
       c.beginPath();
       c.arc(p.x, p.y, rippleRadius, 0, 2 * Math.PI);
@@ -1476,36 +1471,36 @@ function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored)
       // Glowing red halo
       c.fillStyle = 'rgba(239, 68, 68, 0.45)';
       c.beginPath();
-      c.arc(p.x, p.y, 11, 0, 2 * Math.PI);
+      c.arc(p.x, p.y, 12, 0, 2 * Math.PI);
       c.fill();
 
       // Bright solid red core
       c.fillStyle = '#ff2a2a';
       c.beginPath();
-      c.arc(p.x, p.y, 6.5, 0, 2 * Math.PI);
+      c.arc(p.x, p.y, 7, 0, 2 * Math.PI);
       c.fill();
 
       c.strokeStyle = '#ffffff';
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(p.x, p.y, 7.5, 0, 2 * Math.PI);
+      c.arc(p.x, p.y, 8, 0, 2 * Math.PI);
       c.stroke();
     } else {
-      // Normal joint dot (when viewing all keypoints)
-      c.fillStyle = 'rgba(6, 182, 212, 0.3)';
+      // Normal Visible Joint (Cyan Ring + White Center)
+      c.fillStyle = 'rgba(6, 182, 212, 0.25)';
       c.beginPath();
-      c.arc(p.x, p.y, 9, 0, 2 * Math.PI);
+      c.arc(p.x, p.y, 8, 0, 2 * Math.PI);
       c.fill();
 
       c.fillStyle = '#ffffff';
       c.beginPath();
-      c.arc(p.x, p.y, 5, 0, 2 * Math.PI);
+      c.arc(p.x, p.y, 4.5, 0, 2 * Math.PI);
       c.fill();
 
       c.strokeStyle = '#06b6d4';
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(p.x, p.y, 6.5, 0, 2 * Math.PI);
+      c.arc(p.x, p.y, 6, 0, 2 * Math.PI);
       c.stroke();
     }
   });
@@ -1514,7 +1509,7 @@ function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored)
 }
 
 /**
- * Draws Floating Angle Badges on Knees (Only appears on faulty joints in Error-Only mode)
+ * Draws Floating Angle Badges on Knees
  */
 function drawAngleAnnotations(c, w, h, lm, riskData, videoElem, isMirrored) {
   const lKnee = lm[POSE_LANDMARKS.LEFT_KNEE];
@@ -1524,22 +1519,16 @@ function drawAngleAnnotations(c, w, h, lm, riskData, videoElem, isMirrored) {
 
   c.save();
 
-  // Left Knee Badge (Only shown if in error or full mode)
+  // Left Knee Badge (Red if faulty, Green if correct)
   if (lKnee && (!lKnee.visibility || lKnee.visibility > 0.4)) {
-    if (!state.errorHighlightOnly || isLeftKneeError) {
-      const p = mapLandmarkToCanvas(lKnee, w, h, videoElem, isMirrored);
-      const isBad = isLeftKneeError;
-      drawBadge(c, p.x + 15, p.y, `${isBad ? '⚠️ ' : ''}L: ${riskData.valgusLeft}°`, isBad ? '#ef4444' : '#10b981');
-    }
+    const p = mapLandmarkToCanvas(lKnee, w, h, videoElem, isMirrored);
+    drawBadge(c, p.x + 15, p.y, `${isLeftKneeError ? '⚠️ ' : ''}L: ${riskData.valgusLeft}°`, isLeftKneeError ? '#ef4444' : '#10b981');
   }
 
-  // Right Knee Badge (Only shown if in error or full mode)
+  // Right Knee Badge (Red if faulty, Green if correct)
   if (rKnee && (!rKnee.visibility || rKnee.visibility > 0.4)) {
-    if (!state.errorHighlightOnly || isRightKneeError) {
-      const p = mapLandmarkToCanvas(rKnee, w, h, videoElem, isMirrored);
-      const isBad = isRightKneeError;
-      drawBadge(c, p.x - 90, p.y, `${isBad ? '⚠️ ' : ''}R: ${riskData.valgusRight}°`, isBad ? '#ef4444' : '#10b981');
-    }
+    const p = mapLandmarkToCanvas(rKnee, w, h, videoElem, isMirrored);
+    drawBadge(c, p.x - 90, p.y, `${isRightKneeError ? '⚠️ ' : ''}R: ${riskData.valgusRight}°`, isRightKneeError ? '#ef4444' : '#10b981');
   }
 
   // Trunk Sway Badge (Only appears if posture tilts)
