@@ -63,21 +63,25 @@ export class VoiceCoach {
       this.synth.cancel(); // Interrupt current speech for emergency warnings
     }
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = this.rate;
-    utterance.volume = this.volume;
-    utterance.pitch = 1.0;
+    try {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = this.rate;
+      utterance.volume = this.volume;
+      utterance.pitch = 1.0;
 
-    // Pick a natural English voice if available
-    const voices = this.synth.getVoices();
-    const naturalVoice = voices.find(v => (v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('David'))));
-    if (naturalVoice) {
-      utterance.voice = naturalVoice;
+      // Pick a natural English voice if available
+      const voices = this.synth.getVoices();
+      const naturalVoice = voices.find(v => (v.lang && v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('David'))));
+      if (naturalVoice) {
+        utterance.voice = naturalVoice;
+      }
+
+      this.lastSpokenText = text;
+      this.lastSpeakTime = now;
+      this.synth.speak(utterance);
+    } catch (e) {
+      console.warn('Speech synthesis notice:', e);
     }
-
-    this.lastSpokenText = text;
-    this.lastSpeakTime = now;
-    this.synth.speak(utterance);
   }
 
   /**

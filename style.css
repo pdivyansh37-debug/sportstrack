@@ -1533,12 +1533,15 @@ main.app-main {
     gap: 0.45rem;
   }
   .profile-badge-btn {
-    padding: 2px;
-    background: transparent;
-    border-color: transparent;
+    padding: 3px !important;
+    background: rgba(15, 23, 42, 0.9) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
   }
   .profile-badge-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(24, 35, 60, 0.98) !important;
+    border-color: var(--cyan-primary) !important;
   }
   .profile-badge-btn .profile-meta {
     display: none;
