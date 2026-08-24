@@ -698,28 +698,28 @@ function evaluateBodyFraming(landmarks, canvasWidth, canvasHeight) {
   const lHip = landmarks[POSE_LANDMARKS.LEFT_HIP];
   const rHip = landmarks[POSE_LANDMARKS.RIGHT_HIP];
 
-  if (!nose || !lHip || !rHip) return { state: 'NO_PERSON', text: '👤 Position yourself in camera frame', color: '#f59e0b' };
+  if (!nose || !lHip || !rHip) return { state: 'NO_PERSON', text: '👤 Center in Frame', color: '#f59e0b' };
 
   const midHipY = (lHip.y + rHip.y) / 2;
   const midHipX = (lHip.x + rHip.x) / 2;
   const anklesVisible = (lAnkle && lAnkle.visibility > 0.4) || (rAnkle && rAnkle.visibility > 0.4);
 
   if (midHipY > 0.85 || !anklesVisible) {
-    return { state: 'TOO_CLOSE', text: '⚠️ Step back 2 steps to show knees & feet', color: '#ef4444' };
+    return { state: 'TOO_CLOSE', text: '⚠️ Step Back (Show Knees)', color: '#ef4444' };
   }
 
   const heightRatio = Math.abs((lAnkle ? lAnkle.y : 0.9) - nose.y);
   if (heightRatio < 0.35) {
-    return { state: 'TOO_FAR', text: '🔍 Move slightly closer', color: '#f59e0b' };
+    return { state: 'TOO_FAR', text: '🔍 Move Closer', color: '#f59e0b' };
   }
 
   if (midHipX < 0.28) {
-    return { state: 'MOVE_RIGHT', text: '➡️ Move slightly right', color: '#06b6d4' };
+    return { state: 'MOVE_RIGHT', text: '➡️ Move Right', color: '#06b6d4' };
   } else if (midHipX > 0.72) {
-    return { state: 'MOVE_LEFT', text: '⬅️ Move slightly left', color: '#06b6d4' };
+    return { state: 'MOVE_LEFT', text: '⬅️ Move Left', color: '#06b6d4' };
   }
 
-  return { state: 'PERFECT', text: '🎯 Body Perfectly Aligned & Locked', color: '#10b981' };
+  return { state: 'PERFECT', text: '🎯 Body Aligned & Locked', color: '#10b981' };
 }
 
 /**

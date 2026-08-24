@@ -398,9 +398,10 @@ main.app-main {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.85rem 1.25rem;
+  padding: 0.75rem 1.15rem;
   background: rgba(12, 18, 32, 0.9);
   border-bottom: 1px solid var(--border-subtle);
+  gap: 0.6rem;
 }
 
 .viewport-title {
@@ -408,29 +409,43 @@ main.app-main {
   align-items: center;
   gap: 8px;
   font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 600;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.viewport-header-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .live-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.72rem;
+  gap: 5px;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--rose-danger);
   background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.25);
   padding: 3px 8px;
   border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .live-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background-color: var(--rose-danger);
   animation: pulse-dot 1.5s infinite;
+  flex-shrink: 0;
 }
 
 @keyframes pulse-dot {
@@ -517,6 +532,10 @@ main.app-main {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 600;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 3px 9px;
+  font-size: 0.74rem;
 }
 
 /* Video Playback & Scrubber Controls (For Upload/Slow-Mo Analysis) */
@@ -1603,6 +1622,64 @@ main.app-main {
     font-size: 0.74rem;
     flex-shrink: 0;
   }
+  /* Stream Viewport Header & Status Badges (Mobile) */
+  .viewport-header {
+    padding: 0.45rem 0.65rem;
+    gap: 0.35rem;
+  }
+  .viewport-title {
+    font-size: 0.76rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .viewport-header-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  #framingPill {
+    font-size: 0.62rem;
+    padding: 2px 6px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+  .live-badge {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    gap: 3px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+  .live-dot {
+    width: 5px;
+    height: 5px;
+  }
+  .video-hud-overlay {
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    gap: 3px;
+  }
+  .video-hud-overlay .hud-pill {
+    padding: 2px 6px;
+    font-size: 0.62rem;
+    white-space: nowrap;
+  }
+  #demoBadge {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .telemetry-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.55rem;
@@ -1673,6 +1750,37 @@ main.app-main {
   .report-summary-grid {
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .viewport-header {
+    padding: 0.38rem 0.5rem;
+    gap: 0.25rem;
+  }
+  .viewport-title {
+    font-size: 0.7rem;
+  }
+  .viewport-header-status {
+    gap: 3px;
+  }
+  #framingPill {
+    font-size: 0.58rem;
+    padding: 1.5px 5px;
+    max-width: 95px;
+  }
+  .live-badge {
+    font-size: 0.56rem;
+    padding: 1.5px 5px;
+    gap: 2.5px;
+  }
+  .live-dot {
+    width: 4px;
+    height: 4px;
+  }
+  .video-hud-overlay .hud-pill {
+    padding: 1.5px 4px;
+    font-size: 0.56rem;
   }
 }
 
