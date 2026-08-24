@@ -1041,7 +1041,7 @@ async function switchVideoSource(source) {
 }
 
 /**
- * Starts Camera Stream
+ * Starts Camera Stream & Continuous MediaPipe Pose Processing Loop
  */
 async function startWebcam() {
   try {
@@ -1051,18 +1051,33 @@ async function startWebcam() {
     elements.webcam.srcObject = stream;
     await elements.webcam.play();
 
-    if (window.Camera && poseDetector) {
-      cameraInstance = new window.Camera(elements.webcam, {
-        onFrame: async () => {
-          if (state.videoSource === 'camera') {
-            await poseDetector.send({ image: elements.webcam });
-          }
-        },
-        width: 1280,
-        height: 720
-      });
-      cameraInstance.start();
+    if (!poseDetector) {
+      initMediaPipePose();
     }
+
+    let isProcessingCameraFrame = false;
+    const processCameraFrame = async () => {
+      if (state.videoSource === 'camera' && elements.webcam.readyState >= 2 && !elements.webcam.paused) {
+        if (!poseDetector) {
+          initMediaPipePose();
+        }
+        if (poseDetector && !isProcessingCameraFrame) {
+          isProcessingCameraFrame = true;
+          try {
+            await poseDetector.send({ image: elements.webcam });
+          } catch (err) {
+            console.error('Camera Pose Detection Exception:', err);
+          } finally {
+            isProcessingCameraFrame = false;
+          }
+        }
+      }
+      if (state.videoSource === 'camera') {
+        requestAnimationFrame(processCameraFrame);
+      }
+    };
+
+    requestAnimationFrame(processCameraFrame);
   } catch (err) {
     console.warn('Camera access unavailable. Falling back to Demo Mode.', err);
     alert('Camera permission denied or camera device not found. Switching to Simulated Demo Mode.');
@@ -1082,10 +1097,25 @@ function handleFileUpload(e) {
   elements.videoUploadPlayer.src = url;
   elements.videoUploadPlayer.play();
 
+  if (!poseDetector) {
+    initMediaPipePose();
+  }
+
+  let isProcessingUploadFrame = false;
   const processUploadedFrame = async () => {
     if (state.videoSource === 'upload' && !elements.videoUploadPlayer.paused && !elements.videoUploadPlayer.ended) {
-      if (poseDetector) {
-        await poseDetector.send({ image: elements.videoUploadPlayer });
+      if (!poseDetector) {
+        initMediaPipePose();
+      }
+      if (poseDetector && !isProcessingUploadFrame) {
+        isProcessingUploadFrame = true;
+        try {
+          await poseDetector.send({ image: elements.videoUploadPlayer });
+        } catch (err) {
+          console.error('Video Upload Pose Detection Exception:', err);
+        } finally {
+          isProcessingUploadFrame = false;
+        }
       }
       requestAnimationFrame(processUploadedFrame);
     }
@@ -1527,65 +1557,98 @@ function drawCenterAlignmentGrid(c, w, h, lm, videoElem, isMirrored) {
 }
 
 /**
- * Draws Biomechanical Skeleton with Selective Error Point Highlighting
+ * Draws Biomechanical Skeleton with Full 33-Keypoint Overlay
  */
 function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored) {
   const connections = [
+    // Head / Facial Geometry
+    [POSE_LANDMARKS.NOSE, POSE_LANDMARKS.LEFT_EYE_INNER],
+    [POSE_LANDMARKS.LEFT_EYE_INNER, POSE_LANDMARKS.LEFT_EYE],
+    [POSE_LANDMARKS.LEFT_EYE, POSE_LANDMARKS.LEFT_EYE_OUTER],
+    [POSE_LANDMARKS.LEFT_EYE_OUTER, POSE_LANDMARKS.LEFT_EAR],
+    [POSE_LANDMARKS.NOSE, POSE_LANDMARKS.RIGHT_EYE_INNER],
+    [POSE_LANDMARKS.RIGHT_EYE_INNER, POSE_LANDMARKS.RIGHT_EYE],
+    [POSE_LANDMARKS.RIGHT_EYE, POSE_LANDMARKS.RIGHT_EYE_OUTER],
+    [POSE_LANDMARKS.RIGHT_EYE_OUTER, POSE_LANDMARKS.RIGHT_EAR],
+    [POSE_LANDMARKS.MOUTH_LEFT, POSE_LANDMARKS.MOUTH_RIGHT],
+
+    // Torso Frame
     [POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.RIGHT_SHOULDER],
     [POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.LEFT_HIP],
     [POSE_LANDMARKS.RIGHT_SHOULDER, POSE_LANDMARKS.RIGHT_HIP],
     [POSE_LANDMARKS.LEFT_HIP, POSE_LANDMARKS.RIGHT_HIP],
     
+    // Left Arm & Hand
     [POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.LEFT_ELBOW],
     [POSE_LANDMARKS.LEFT_ELBOW, POSE_LANDMARKS.LEFT_WRIST],
+    [POSE_LANDMARKS.LEFT_WRIST, POSE_LANDMARKS.LEFT_PINKY],
+    [POSE_LANDMARKS.LEFT_WRIST, POSE_LANDMARKS.LEFT_INDEX],
+    [POSE_LANDMARKS.LEFT_WRIST, POSE_LANDMARKS.LEFT_THUMB],
+    [POSE_LANDMARKS.LEFT_PINKY, POSE_LANDMARKS.LEFT_INDEX],
+
+    // Right Arm & Hand
     [POSE_LANDMARKS.RIGHT_SHOULDER, POSE_LANDMARKS.RIGHT_ELBOW],
     [POSE_LANDMARKS.RIGHT_ELBOW, POSE_LANDMARKS.RIGHT_WRIST],
+    [POSE_LANDMARKS.RIGHT_WRIST, POSE_LANDMARKS.RIGHT_PINKY],
+    [POSE_LANDMARKS.RIGHT_WRIST, POSE_LANDMARKS.RIGHT_INDEX],
+    [POSE_LANDMARKS.RIGHT_WRIST, POSE_LANDMARKS.RIGHT_THUMB],
+    [POSE_LANDMARKS.RIGHT_PINKY, POSE_LANDMARKS.RIGHT_INDEX],
     
+    // Left Leg & Foot
     [POSE_LANDMARKS.LEFT_HIP, POSE_LANDMARKS.LEFT_KNEE],
     [POSE_LANDMARKS.LEFT_KNEE, POSE_LANDMARKS.LEFT_ANKLE],
+    [POSE_LANDMARKS.LEFT_ANKLE, POSE_LANDMARKS.LEFT_HEEL],
+    [POSE_LANDMARKS.LEFT_HEEL, POSE_LANDMARKS.LEFT_FOOT_INDEX],
+    [POSE_LANDMARKS.LEFT_ANKLE, POSE_LANDMARKS.LEFT_FOOT_INDEX],
+
+    // Right Leg & Foot
     [POSE_LANDMARKS.RIGHT_HIP, POSE_LANDMARKS.RIGHT_KNEE],
-    [POSE_LANDMARKS.RIGHT_KNEE, POSE_LANDMARKS.RIGHT_ANKLE]
+    [POSE_LANDMARKS.RIGHT_KNEE, POSE_LANDMARKS.RIGHT_ANKLE],
+    [POSE_LANDMARKS.RIGHT_ANKLE, POSE_LANDMARKS.RIGHT_HEEL],
+    [POSE_LANDMARKS.RIGHT_HEEL, POSE_LANDMARKS.RIGHT_FOOT_INDEX],
+    [POSE_LANDMARKS.RIGHT_ANKLE, POSE_LANDMARKS.RIGHT_FOOT_INDEX]
   ];
 
   c.save();
 
   // Evaluate which specific joints have posture flaws
-  const isLeftKneeError = riskData.collapseLeft > 8 || riskData.valgusLeft < 168;
-  const isRightKneeError = riskData.collapseRight > 8 || riskData.valgusRight < 168;
+  const isLeftKneeError = riskData.collapseLeft > 7.5 || (riskData.valgusLeft && riskData.valgusLeft < 172);
+  const isRightKneeError = riskData.collapseRight > 7.5 || (riskData.valgusRight && riskData.valgusRight < 172);
   const isTrunkError = riskData.trunkLean > 12;
 
   // 1. Draw connecting bone lines
   connections.forEach(([i1, i2]) => {
     const lm1 = lm[i1];
     const lm2 = lm[i2];
-    if (!lm1 || !lm2 || (lm1.visibility && lm1.visibility < 0.35) || (lm2.visibility && lm2.visibility < 0.35)) return;
+    if (!lm1 || !lm2) return;
 
     const p1 = mapLandmarkToCanvas(lm1, w, h, videoElem, isMirrored);
     const p2 = mapLandmarkToCanvas(lm2, w, h, videoElem, isMirrored);
 
-    let boneColor = '#06b6d4';
+    let boneColor = 'rgba(6, 182, 212, 0.85)';
+    let boneWidth = 3.5;
+
     if ((i1 === POSE_LANDMARKS.LEFT_KNEE || i2 === POSE_LANDMARKS.LEFT_KNEE) && isLeftKneeError) {
       boneColor = '#ef4444';
+      boneWidth = 4.5;
     } else if ((i1 === POSE_LANDMARKS.RIGHT_KNEE || i2 === POSE_LANDMARKS.RIGHT_KNEE) && isRightKneeError) {
       boneColor = '#ef4444';
-    } else if ((i1 === POSE_LANDMARKS.LEFT_KNEE || i2 === POSE_LANDMARKS.LEFT_KNEE ||
-        i1 === POSE_LANDMARKS.RIGHT_KNEE || i2 === POSE_LANDMARKS.RIGHT_KNEE)) {
-      boneColor = riskData.color;
+      boneWidth = 4.5;
     }
 
     c.strokeStyle = boneColor;
-    c.lineWidth = 4;
+    c.lineWidth = boneWidth;
     c.lineCap = 'round';
+    c.lineJoin = 'round';
     c.beginPath();
     c.moveTo(p1.x, p1.y);
     c.lineTo(p2.x, p2.y);
     c.stroke();
   });
 
-  // 2. Draw Joint Points (All joints visible; ONLY faulty posture joint turns glowing RED)
+  // 2. Draw ALL 33 Joint Points Clearly & Brightly
   lm.forEach((pt, idx) => {
-    if (idx > 32 || (pt.visibility && pt.visibility < 0.35)) return;
-    if (idx > 0 && idx < 11 && idx !== 7 && idx !== 8) return;
+    if (idx > 32 || !pt) return;
 
     const isThisJointInError = 
       (idx === POSE_LANDMARKS.LEFT_KNEE && isLeftKneeError) ||
@@ -1600,14 +1663,14 @@ function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored)
       const rippleRadius = 10 + (Math.sin(pulseTime) + 1) * 8;
 
       // Outer animated ripple wave
-      c.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+      c.strokeStyle = 'rgba(239, 68, 68, 0.85)';
       c.lineWidth = 2.5;
       c.beginPath();
       c.arc(p.x, p.y, rippleRadius, 0, 2 * Math.PI);
       c.stroke();
 
       // Glowing red halo
-      c.fillStyle = 'rgba(239, 68, 68, 0.45)';
+      c.fillStyle = 'rgba(239, 68, 68, 0.5)';
       c.beginPath();
       c.arc(p.x, p.y, 12, 0, 2 * Math.PI);
       c.fill();
@@ -1624,22 +1687,38 @@ function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored)
       c.arc(p.x, p.y, 8, 0, 2 * Math.PI);
       c.stroke();
     } else {
-      // Normal Visible Joint (Cyan Ring + White Center)
-      c.fillStyle = 'rgba(6, 182, 212, 0.25)';
+      // Bright Crisp Marker for all 33 Keypoints
+      const isMajorJoint = [
+        POSE_LANDMARKS.NOSE,
+        POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.RIGHT_SHOULDER,
+        POSE_LANDMARKS.LEFT_ELBOW, POSE_LANDMARKS.RIGHT_ELBOW,
+        POSE_LANDMARKS.LEFT_WRIST, POSE_LANDMARKS.RIGHT_WRIST,
+        POSE_LANDMARKS.LEFT_HIP, POSE_LANDMARKS.RIGHT_HIP,
+        POSE_LANDMARKS.LEFT_KNEE, POSE_LANDMARKS.RIGHT_KNEE,
+        POSE_LANDMARKS.LEFT_ANKLE, POSE_LANDMARKS.RIGHT_ANKLE
+      ].includes(idx);
+
+      const dotRadius = isMajorJoint ? 5.5 : 3.5;
+      const haloRadius = isMajorJoint ? 8.5 : 5.5;
+
+      // Outer cyan glow
+      c.fillStyle = 'rgba(6, 182, 212, 0.35)';
       c.beginPath();
-      c.arc(p.x, p.y, 8, 0, 2 * Math.PI);
+      c.arc(p.x, p.y, haloRadius, 0, 2 * Math.PI);
       c.fill();
 
-      c.fillStyle = '#ffffff';
-      c.beginPath();
-      c.arc(p.x, p.y, 4.5, 0, 2 * Math.PI);
-      c.fill();
-
+      // Cyan ring
       c.strokeStyle = '#06b6d4';
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(p.x, p.y, 6, 0, 2 * Math.PI);
+      c.arc(p.x, p.y, dotRadius + 1.5, 0, 2 * Math.PI);
       c.stroke();
+
+      // Solid white center core
+      c.fillStyle = '#ffffff';
+      c.beginPath();
+      c.arc(p.x, p.y, dotRadius, 0, 2 * Math.PI);
+      c.fill();
     }
   });
 
