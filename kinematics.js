@@ -1041,6 +1041,39 @@ export class SyntheticPoseGenerator {
       }
     }
 
+    // 8. Populate All Facial & Peripheral Extremity Points for Full 33 Keypoint Tracking
+    const nose = landmarks[POSE_LANDMARKS.NOSE];
+    landmarks[POSE_LANDMARKS.LEFT_EYE_INNER] = { x: nose.x + 0.015, y: nose.y - 0.02, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.LEFT_EYE] = { x: nose.x + 0.025, y: nose.y - 0.02, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.LEFT_EYE_OUTER] = { x: nose.x + 0.035, y: nose.y - 0.02, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.RIGHT_EYE_INNER] = { x: nose.x - 0.015, y: nose.y - 0.02, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.RIGHT_EYE] = { x: nose.x - 0.025, y: nose.y - 0.02, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.RIGHT_EYE_OUTER] = { x: nose.x - 0.035, y: nose.y - 0.02, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.LEFT_EAR] = { x: nose.x + 0.055, y: nose.y - 0.005, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.RIGHT_EAR] = { x: nose.x - 0.055, y: nose.y - 0.005, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.MOUTH_LEFT] = { x: nose.x + 0.015, y: nose.y + 0.025, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.MOUTH_RIGHT] = { x: nose.x - 0.015, y: nose.y + 0.025, z: 0, visibility: 0.99 };
+
+    // Hands & Fingers
+    const lW = landmarks[POSE_LANDMARKS.LEFT_WRIST];
+    const rW = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
+    landmarks[POSE_LANDMARKS.LEFT_PINKY] = { x: lW.x + 0.015, y: lW.y + 0.035, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.LEFT_INDEX] = { x: lW.x, y: lW.y + 0.045, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.LEFT_THUMB] = { x: lW.x - 0.015, y: lW.y + 0.025, z: 0, visibility: 0.99 };
+
+    landmarks[POSE_LANDMARKS.RIGHT_PINKY] = { x: rW.x - 0.015, y: rW.y + 0.035, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.RIGHT_INDEX] = { x: rW.x, y: rW.y + 0.045, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.RIGHT_THUMB] = { x: rW.x + 0.015, y: rW.y + 0.025, z: 0, visibility: 0.99 };
+
+    // Feet & Toes
+    const lA = landmarks[POSE_LANDMARKS.LEFT_ANKLE];
+    const rA = landmarks[POSE_LANDMARKS.RIGHT_ANKLE];
+    landmarks[POSE_LANDMARKS.LEFT_HEEL] = { x: lA.x - 0.015, y: lA.y + 0.02, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.LEFT_FOOT_INDEX] = { x: lA.x + 0.035, y: lA.y + 0.03, z: 0, visibility: 0.99 };
+
+    landmarks[POSE_LANDMARKS.RIGHT_HEEL] = { x: rA.x + 0.015, y: rA.y + 0.02, z: 0, visibility: 0.99 };
+    landmarks[POSE_LANDMARKS.RIGHT_FOOT_INDEX] = { x: rA.x - 0.035, y: rA.y + 0.03, z: 0, visibility: 0.99 };
+
     return landmarks;
   }
 }

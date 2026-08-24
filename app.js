@@ -1130,15 +1130,24 @@ function handleFileUpload(e) {
  * Runs synthetic pose simulation
  */
 function startDemoSimulation() {
+  if (demoAnimationFrameId) {
+    cancelAnimationFrame(demoAnimationFrameId);
+    demoAnimationFrameId = null;
+  }
+
   const runDemo = () => {
     if (state.videoSource !== 'demo') return;
 
-    const syntheticLandmarks = syntheticGenerator.generateFrame(state.exerciseId, state.demoWithValgusFlaw);
-    
-    onPoseResults({
-      poseLandmarks: syntheticLandmarks,
-      image: null
-    });
+    try {
+      const syntheticLandmarks = syntheticGenerator.generateFrame(state.exerciseId, state.demoWithValgusFlaw);
+      
+      onPoseResults({
+        poseLandmarks: syntheticLandmarks,
+        image: null
+      });
+    } catch (err) {
+      console.error('Error during synthetic demo simulation:', err);
+    }
 
     demoAnimationFrameId = requestAnimationFrame(runDemo);
   };
@@ -1150,136 +1159,145 @@ function startDemoSimulation() {
  * Primary MediaPipe Pose Results Handler
  */
 function onPoseResults(results) {
-  updateFPS();
+  try {
+    updateFPS();
 
-  const container = elements.overlay.parentElement;
-  const width = container.clientWidth || 800;
-  const height = container.clientHeight || 450;
-  
-  if (elements.overlay.width !== width || elements.overlay.height !== height) {
-    elements.overlay.width = width;
-    elements.overlay.height = height;
-  }
-
-  ctx.clearRect(0, 0, width, height);
-
-  if (state.videoSource === 'demo') {
-    drawCyberBackdrop(ctx, width, height);
-  }
-
-  if (!results || !results.poseLandmarks) {
-    if (state.showSilhouette) {
-      drawBodySilhouetteStencil(ctx, width, height, false);
+    const container = elements.overlay.parentElement;
+    const width = container.clientWidth || 800;
+    const height = container.clientHeight || 450;
+    
+    if (elements.overlay.width !== width || elements.overlay.height !== height) {
+      elements.overlay.width = width;
+      elements.overlay.height = height;
     }
-    return;
-  }
 
-  const rawLandmarks = results.poseLandmarks;
-  const landmarks = state.videoSource === 'demo' ? rawLandmarks : landmarkSmoother.smooth(rawLandmarks);
-  const activeVideo = state.videoSource === 'camera' ? elements.webcam : state.videoSource === 'upload' ? elements.videoUploadPlayer : null;
-  const isMirrored = state.videoSource === 'camera' && state.isMirrored;
-  const activeAthlete = athleteManager.getActiveAthlete();
+    ctx.clearRect(0, 0, width, height);
 
-  // 1. Evaluate Body Framing & Stencil Fit
-  const framing = evaluateBodyFraming(landmarks, width, height);
-  const isAligned = framing.state === 'PERFECT';
+    if (state.videoSource === 'demo') {
+      drawCyberBackdrop(ctx, width, height);
+    }
 
-  if (elements.framingPill) {
-    elements.framingPill.textContent = framing.text;
-    elements.framingPill.style.borderColor = framing.color;
-    elements.framingPill.style.color = framing.color;
-  }
-
-  if (state.showSilhouette) {
-    drawBodySilhouetteStencil(ctx, width, height, isAligned);
-  }
-
-  // 2. Handle Auto-Calibration Samples
-  if (state.isCalibrating) {
-    const lHip = landmarks[POSE_LANDMARKS.LEFT_HIP];
-    const rHip = landmarks[POSE_LANDMARKS.RIGHT_HIP];
-    const lKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE];
-    const rKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE];
-    const lAnkle = landmarks[POSE_LANDMARKS.LEFT_ANKLE];
-    const rAnkle = landmarks[POSE_LANDMARKS.RIGHT_ANKLE];
-
-    const valgusL = calculateAngle(lHip, lKnee, lAnkle);
-    const valgusR = calculateAngle(rHip, rKnee, rAnkle);
-    state.calibrationSamples.push({ valgusL, valgusR });
-    state.calibrationCount++;
-
-    if (state.calibrationCount >= 45) {
-      const avgL = state.calibrationSamples.reduce((a, b) => a + b.valgusL, 0) / state.calibrationSamples.length;
-      const avgR = state.calibrationSamples.reduce((a, b) => a + b.valgusR, 0) / state.calibrationSamples.length;
-      state.neutralOffsetValgusL = 180 - avgL;
-      state.neutralOffsetValgusR = 180 - avgR;
-      state.isCalibrating = false;
-      state.isCalibrated = true;
-      if (elements.calibrateBtn) {
-        elements.calibrateBtn.textContent = '✅ Calibrated';
+    if (!results || !results.poseLandmarks) {
+      if (state.showSilhouette) {
+        drawBodySilhouetteStencil(ctx, width, height, false);
       }
-      voiceCoach.playChime('lock_success');
-      voiceCoach.speak('Calibration complete! Ready to start screening.');
+      return;
     }
-  }
 
-  // 3. Biomechanical Evaluation with Sports Profile & Calibration Offset
-  const riskData = evaluateACLRisk(landmarks, state.exerciseId, state.currentSport);
-  if (state.isCalibrated) {
-    riskData.valgusLeft = Math.round(riskData.valgusLeft + state.neutralOffsetValgusL);
-    riskData.valgusRight = Math.round(riskData.valgusRight + state.neutralOffsetValgusR);
-  }
+    const rawLandmarks = results.poseLandmarks;
+    const landmarks = state.videoSource === 'demo' ? rawLandmarks : landmarkSmoother.smooth(rawLandmarks);
+    const activeVideo = state.videoSource === 'camera' ? elements.webcam : state.videoSource === 'upload' ? elements.videoUploadPlayer : null;
+    const isMirrored = state.videoSource === 'camera' && state.isMirrored;
+    const activeAthlete = athleteManager.getActiveAthlete();
 
-  const repData = repTracker.update(landmarks, riskData);
-  const jumpData = jumpTracker.update(landmarks);
+    // 1. Evaluate Body Framing & Stencil Fit
+    const framing = evaluateBodyFraming(landmarks, width, height);
+    const isAligned = framing.state === 'PERFECT';
 
-  if (riskData.score > state.maxRiskScore) {
-    state.maxRiskScore = riskData.score;
-    if (state.videoSource === 'upload' && elements.videoUploadPlayer) {
-      state.peakValgusTimestamp = elements.videoUploadPlayer.currentTime;
+    if (elements.framingPill) {
+      elements.framingPill.textContent = framing.text;
+      elements.framingPill.style.borderColor = framing.color;
+      elements.framingPill.style.color = framing.color;
     }
-  }
 
-  if (riskData.lessScore > state.maxLessScore) {
-    state.maxLessScore = riskData.lessScore;
-  }
-
-  if (jumpData && jumpData.jumpCompleted) {
-    state.maxJumpHeightCm = jumpData.jumpHeightCm;
-    state.maxImpactGForce = jumpData.impactGForce;
-    voiceCoach.speak(`Jump height ${jumpData.jumpHeightCm} centimeters!`);
-  }
-
-  // 4. Critical Injury Risk Alerts Processing
-  const exerciseName = elements.exerciseSelect.options[elements.exerciseSelect.selectedIndex].text;
-  const incident = alertManager.processTelemetry(riskData, activeAthlete, exerciseName);
-  if (incident) {
-    triggerVisualDangerAlarm();
-    if (alertManager.settings.enableAudioSiren) {
-      voiceCoach.playChime('danger_siren');
+    if (state.showSilhouette) {
+      drawBodySilhouetteStencil(ctx, width, height, isAligned);
     }
-    voiceCoach.speak(incident.feedback, true);
-  }
 
-  // 5. Render Skeleton & Visuals with Exact Geometric Mapping
-  if (state.showGrid) {
-    drawCenterAlignmentGrid(ctx, width, height, landmarks, activeVideo, isMirrored);
-  }
-  if (state.showSkeleton) {
-    drawBiomechanicalSkeleton(ctx, width, height, landmarks, riskData, activeVideo, isMirrored);
-  }
-  if (state.showAngles) {
-    drawAngleAnnotations(ctx, width, height, landmarks, riskData, activeVideo, isMirrored);
-  }
+    // 2. Handle Auto-Calibration Samples
+    if (state.isCalibrating) {
+      const lHip = landmarks[POSE_LANDMARKS.LEFT_HIP];
+      const rHip = landmarks[POSE_LANDMARKS.RIGHT_HIP];
+      const lKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE];
+      const rKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE];
+      const lAnkle = landmarks[POSE_LANDMARKS.LEFT_ANKLE];
+      const rAnkle = landmarks[POSE_LANDMARKS.RIGHT_ANKLE];
 
-  // 6. Update DOM Telemetry & Gauges
-  updateDashboardUI(riskData, repData, jumpData);
+      if (lHip && rHip && lKnee && rKnee && lAnkle && rAnkle) {
+        const valgusL = calculateAngle(lHip, lKnee, lAnkle);
+        const valgusR = calculateAngle(rHip, rKnee, rAnkle);
+        state.calibrationSamples.push({ valgusL, valgusR });
+        state.calibrationCount++;
 
-  // 7. Voice Coaching & Chimes
-  handleCoachingFeedback(riskData, repData);
+        if (state.calibrationCount >= 45) {
+          const avgL = state.calibrationSamples.reduce((a, b) => a + b.valgusL, 0) / state.calibrationSamples.length;
+          const avgR = state.calibrationSamples.reduce((a, b) => a + b.valgusR, 0) / state.calibrationSamples.length;
+          state.neutralOffsetValgusL = 180 - avgL;
+          state.neutralOffsetValgusR = 180 - avgR;
+          state.isCalibrating = false;
+          state.isCalibrated = true;
+          if (elements.calibrateBtn) {
+            elements.calibrateBtn.textContent = '✅ Calibrated';
+          }
+          voiceCoach.playChime('lock_success');
+          voiceCoach.speak('Calibration complete! Ready to start screening.');
+        }
+      }
+    }
 
-  // 8. Log Telemetry
-  logTelemetry(riskData, repData);
+    // 3. Biomechanical Evaluation with Sports Profile & Calibration Offset
+    const riskData = evaluateACLRisk(landmarks, state.exerciseId, state.currentSport);
+    if (state.isCalibrated) {
+      riskData.valgusLeft = Math.round(riskData.valgusLeft + state.neutralOffsetValgusL);
+      riskData.valgusRight = Math.round(riskData.valgusRight + state.neutralOffsetValgusR);
+    }
+
+    const repData = repTracker.update(landmarks, riskData);
+    const jumpData = jumpTracker.update(landmarks);
+
+    if (riskData.score > state.maxRiskScore) {
+      state.maxRiskScore = riskData.score;
+      if (state.videoSource === 'upload' && elements.videoUploadPlayer) {
+        state.peakValgusTimestamp = elements.videoUploadPlayer.currentTime;
+      }
+    }
+
+    if (riskData.lessScore > state.maxLessScore) {
+      state.maxLessScore = riskData.lessScore;
+    }
+
+    if (jumpData && jumpData.jumpCompleted) {
+      state.maxJumpHeightCm = jumpData.jumpHeightCm;
+      state.maxImpactGForce = jumpData.impactGForce;
+      voiceCoach.speak(`Jump height ${jumpData.jumpHeightCm} centimeters!`);
+    }
+
+    // 4. Critical Injury Risk Alerts Processing
+    let exerciseName = 'Squat Protocol';
+    if (elements.exerciseSelect && elements.exerciseSelect.selectedIndex >= 0 && elements.exerciseSelect.options[elements.exerciseSelect.selectedIndex]) {
+      exerciseName = elements.exerciseSelect.options[elements.exerciseSelect.selectedIndex].text;
+    }
+    const incident = alertManager.processTelemetry(riskData, activeAthlete, exerciseName);
+    if (incident) {
+      triggerVisualDangerAlarm();
+      if (alertManager.settings && alertManager.settings.enableAudioSiren) {
+        voiceCoach.playChime('danger_siren');
+      }
+      voiceCoach.speak(incident.feedback, true);
+    }
+
+    // 5. Render Skeleton & Visuals with Exact Geometric Mapping
+    if (state.showGrid) {
+      drawCenterAlignmentGrid(ctx, width, height, landmarks, activeVideo, isMirrored);
+    }
+    if (state.showSkeleton) {
+      drawBiomechanicalSkeleton(ctx, width, height, landmarks, riskData, activeVideo, isMirrored);
+    }
+    if (state.showAngles) {
+      drawAngleAnnotations(ctx, width, height, landmarks, riskData, activeVideo, isMirrored);
+    }
+
+    // 6. Update DOM Telemetry & Gauges
+    updateDashboardUI(riskData, repData, jumpData);
+
+    // 7. Voice Coaching & Chimes
+    handleCoachingFeedback(riskData, repData);
+
+    // 8. Log Telemetry
+    logTelemetry(riskData, repData);
+  } catch (renderErr) {
+    console.error('Render Frame Error in onPoseResults:', renderErr);
+  }
 }
 
 /**
