@@ -22,7 +22,7 @@
   <!-- SheetJS for Native Multi-Sheet Excel (.xlsx) Export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=3.0" />
 </head>
 <body>
   <!-- Top Navigation Bar -->
@@ -179,9 +179,8 @@
       <!-- Viewport Layer Controls Toolbar -->
       <div class="viewport-toolbar">
         <div class="layer-toggles">
-          <button id="toggleErrorOnly" class="toggle-chip active" style="border-color: var(--rose-danger); color: var(--rose-danger);">🔴 Error-Only Points: ON</button>
           <button id="toggleSilhouette" class="toggle-chip active">🎯 Silhouette Stencil</button>
-          <button id="toggleSkeleton" class="toggle-chip active">🦴 Skeleton</button>
+          <button id="toggleSkeleton" class="toggle-chip active">🦴 Skeleton & Points</button>
           <button id="toggleAngles" class="toggle-chip active">📐 Angle Badges</button>
           <button id="toggleGrid" class="toggle-chip active">🌐 Center-of-Mass</button>
         </div>
@@ -633,6 +632,6 @@
     </div>
   </div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=3.0"></script>
 </body>
 </html>

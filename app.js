@@ -18,12 +18,12 @@ import {
   RepetitionTracker,
   SyntheticPoseGenerator,
   LandmarkSmoother
-} from './kinematics.js';
+} from './kinematics.js?v=3.0';
 
-import { AthleteProfileManager } from './athleteProfile.js';
-import { VoiceCoach } from './voiceCoach.js';
-import { ReportGenerator } from './reportGenerator.js';
-import { AlertManager } from './alertManager.js';
+import { AthleteProfileManager } from './athleteProfile.js?v=3.0';
+import { VoiceCoach } from './voiceCoach.js?v=3.0';
+import { ReportGenerator } from './reportGenerator.js?v=3.0';
+import { AlertManager } from './alertManager.js?v=3.0';
 
 // Landmark Temporal Smoother for High-Accuracy Pose Tracking
 const landmarkSmoother = new LandmarkSmoother(0.40);
@@ -45,7 +45,6 @@ const state = {
   showSkeleton: true,
   showAngles: true,
   showGrid: true,
-  errorHighlightOnly: true, // Show points ONLY on joints with bad posture/valgus flaw
   isCalibrated: false,
   isCalibrating: false,
   calibrationCount: 0,
@@ -128,7 +127,6 @@ const elements = {
   toggleAnglesBtn: document.getElementById('toggleAngles'),
   toggleGridBtn: document.getElementById('toggleGrid'),
   toggleSilhouetteBtn: document.getElementById('toggleSilhouette'),
-  toggleErrorOnlyBtn: document.getElementById('toggleErrorOnly'),
   
   gaugeNum: document.getElementById('gaugeNum'),
   gaugeStatusBadge: document.getElementById('gaugeStatusBadge'),
@@ -331,15 +329,6 @@ function setupEventListeners() {
     elements.toggleSilhouetteBtn.addEventListener('click', () => {
       state.showSilhouette = !state.showSilhouette;
       elements.toggleSilhouetteBtn.classList.toggle('active', state.showSilhouette);
-    });
-  }
-
-  if (elements.toggleErrorOnlyBtn) {
-    elements.toggleErrorOnlyBtn.addEventListener('click', () => {
-      state.errorHighlightOnly = !state.errorHighlightOnly;
-      elements.toggleErrorOnlyBtn.classList.toggle('active', state.errorHighlightOnly);
-      elements.toggleErrorOnlyBtn.textContent = state.errorHighlightOnly ? '🔴 Error-Only Points: ON' : '⚪ All 33 Points: ON';
-      voiceCoach.speak(state.errorHighlightOnly ? 'Error focus mode active' : 'Showing all keypoints');
     });
   }
 
@@ -1473,55 +1462,66 @@ function initTelemetryChart() {
  * Draws Cyber Biomechanical Laboratory Backdrop
  */
 function drawCyberBackdrop(c, w, h) {
-  // Deep Cyber Laboratory Radial Gradient
-  const grad = c.createRadialGradient(w / 2, h * 0.45, 40, w / 2, h * 0.5, w * 0.75);
-  grad.addColorStop(0, '#0f172a');
-  grad.addColorStop(0.5, '#090e1a');
-  grad.addColorStop(1, '#030712');
+  c.save();
+
+  // 1. Deep Cyber Laboratory Gradient
+  const grad = c.createRadialGradient(w / 2, h * 0.45, 50, w / 2, h * 0.5, w * 0.85);
+  grad.addColorStop(0, '#111e38');
+  grad.addColorStop(0.45, '#0a1224');
+  grad.addColorStop(0.85, '#050914');
+  grad.addColorStop(1, '#02040a');
   c.fillStyle = grad;
   c.fillRect(0, 0, w, h);
 
-  // Subtle sports laboratory perspective grid
-  c.save();
-  const horizonY = h * 0.78;
-  
-  // Perspective Floor Grid Lines
-  c.strokeStyle = 'rgba(6, 182, 212, 0.14)';
-  c.lineWidth = 1.2;
-  for (let x = -w * 0.5; x <= w * 1.5; x += 60) {
+  const horizonY = h * 0.76;
+
+  // 2. Glowing Perspective Floor Grid Lines
+  c.strokeStyle = 'rgba(6, 182, 212, 0.22)';
+  c.lineWidth = 1.4;
+  for (let x = -w * 0.6; x <= w * 1.6; x += 55) {
     c.beginPath();
-    c.moveTo(w / 2, horizonY * 0.95);
+    c.moveTo(w / 2, horizonY * 0.94);
     c.lineTo(x, h);
     c.stroke();
   }
 
-  // Horizontal Floor Rings / Grids
-  for (let y = horizonY; y <= h; y += (h - horizonY) / 6) {
+  // 3. Horizontal Floor Distance Rings
+  for (let y = horizonY; y <= h; y += (h - horizonY) / 5) {
+    c.strokeStyle = 'rgba(6, 182, 212, 0.20)';
+    c.lineWidth = 1.2;
     c.beginPath();
     c.moveTo(0, y);
     c.lineTo(w, y);
     c.stroke();
   }
 
-  // Circular Biomechanical Calibration Target Ring on Floor
-  const platCenterY = h * 0.88;
-  const platRadiusX = w * 0.28;
-  const platRadiusY = h * 0.08;
+  // 4. Illuminated Biomechanical Force Platform on Floor
+  const platCenterY = h * 0.87;
+  const platRadiusX = w * 0.32;
+  const platRadiusY = h * 0.09;
 
-  c.strokeStyle = 'rgba(6, 182, 212, 0.25)';
-  c.lineWidth = 1.5;
+  // Outer Glowing Ring
+  c.strokeStyle = 'rgba(6, 182, 212, 0.65)';
+  c.lineWidth = 2.0;
   c.beginPath();
   c.ellipse(w / 2, platCenterY, platRadiusX, platRadiusY, 0, 0, 2 * Math.PI);
   c.stroke();
 
-  c.strokeStyle = 'rgba(99, 102, 241, 0.2)';
-  c.lineWidth = 1;
+  // Inner Target Ring
+  c.strokeStyle = 'rgba(99, 102, 241, 0.55)';
+  c.lineWidth = 1.5;
   c.beginPath();
   c.ellipse(w / 2, platCenterY, platRadiusX * 0.6, platRadiusY * 0.6, 0, 0, 2 * Math.PI);
   c.stroke();
 
-  // Subtle Watermark Badge
-  c.fillStyle = 'rgba(6, 182, 212, 0.5)';
+  // Center Bullseye Target Marker
+  c.fillStyle = 'rgba(6, 182, 212, 0.7)';
+  c.beginPath();
+  c.ellipse(w / 2, platCenterY, 6, 2.5, 0, 0, 2 * Math.PI);
+  c.fill();
+
+  // 5. Subtle Watermark Badge
+  c.fillStyle = 'rgba(6, 182, 212, 0.75)';
   c.font = '600 11px Outfit, sans-serif';
   c.textAlign = 'right';
   c.fillText('⚡ BIOMECHANICAL MOTION LAB • SIMULATOR ACTIVE', w - 16, 24);
