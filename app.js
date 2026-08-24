@@ -967,27 +967,6 @@ function updateExerciseDropdown() {
 }
 
 /**
- * Initializes MediaPipe Pose Detector
- */
-function initMediaPipePose() {
-  if (window.Pose) {
-    poseDetector = new window.Pose({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
-    });
-
-    poseDetector.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      enableSegmentation: false,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    });
-
-    poseDetector.onResults(onPoseResults);
-  }
-}
-
-/**
  * Switches video source
  */
 async function switchVideoSource(source) {
@@ -1664,80 +1643,43 @@ function drawBiomechanicalSkeleton(c, w, h, lm, riskData, videoElem, isMirrored)
     c.stroke();
   });
 
-  // 2. Draw ALL 33 Joint Points Clearly & Brightly
+  // 2. Draw ALL 33 Joint Points Clearly & Aesthetically
   lm.forEach((pt, idx) => {
     if (idx > 32 || !pt) return;
 
-    const isThisJointInError = 
-      (idx === POSE_LANDMARKS.LEFT_KNEE && isLeftKneeError) ||
-      (idx === POSE_LANDMARKS.RIGHT_KNEE && isRightKneeError) ||
-      ((idx === POSE_LANDMARKS.LEFT_SHOULDER || idx === POSE_LANDMARKS.RIGHT_SHOULDER) && isTrunkError);
-
     const p = mapLandmarkToCanvas(pt, w, h, videoElem, isMirrored);
 
-    if (isThisJointInError) {
-      // Flashing Pulsing RED Warning Beacon on Faulty Joint
-      const pulseTime = performance.now() / 140;
-      const rippleRadius = 10 + (Math.sin(pulseTime) + 1) * 8;
+    const isMajorJoint = [
+      POSE_LANDMARKS.NOSE,
+      POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.RIGHT_SHOULDER,
+      POSE_LANDMARKS.LEFT_ELBOW, POSE_LANDMARKS.RIGHT_ELBOW,
+      POSE_LANDMARKS.LEFT_WRIST, POSE_LANDMARKS.RIGHT_WRIST,
+      POSE_LANDMARKS.LEFT_HIP, POSE_LANDMARKS.RIGHT_HIP,
+      POSE_LANDMARKS.LEFT_KNEE, POSE_LANDMARKS.RIGHT_KNEE,
+      POSE_LANDMARKS.LEFT_ANKLE, POSE_LANDMARKS.RIGHT_ANKLE
+    ].includes(idx);
 
-      // Outer animated ripple wave
-      c.strokeStyle = 'rgba(239, 68, 68, 0.85)';
-      c.lineWidth = 2.5;
-      c.beginPath();
-      c.arc(p.x, p.y, rippleRadius, 0, 2 * Math.PI);
-      c.stroke();
+    const dotRadius = isMajorJoint ? 5.0 : 3.2;
+    const haloRadius = isMajorJoint ? 8.0 : 5.0;
 
-      // Glowing red halo
-      c.fillStyle = 'rgba(239, 68, 68, 0.5)';
-      c.beginPath();
-      c.arc(p.x, p.y, 12, 0, 2 * Math.PI);
-      c.fill();
+    // Outer cyan glow
+    c.fillStyle = 'rgba(6, 182, 212, 0.35)';
+    c.beginPath();
+    c.arc(p.x, p.y, haloRadius, 0, 2 * Math.PI);
+    c.fill();
 
-      // Bright solid red core
-      c.fillStyle = '#ff2a2a';
-      c.beginPath();
-      c.arc(p.x, p.y, 7, 0, 2 * Math.PI);
-      c.fill();
+    // Cyan ring
+    c.strokeStyle = '#06b6d4';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(p.x, p.y, dotRadius + 1.5, 0, 2 * Math.PI);
+    c.stroke();
 
-      c.strokeStyle = '#ffffff';
-      c.lineWidth = 2;
-      c.beginPath();
-      c.arc(p.x, p.y, 8, 0, 2 * Math.PI);
-      c.stroke();
-    } else {
-      // Bright Crisp Marker for all 33 Keypoints
-      const isMajorJoint = [
-        POSE_LANDMARKS.NOSE,
-        POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.RIGHT_SHOULDER,
-        POSE_LANDMARKS.LEFT_ELBOW, POSE_LANDMARKS.RIGHT_ELBOW,
-        POSE_LANDMARKS.LEFT_WRIST, POSE_LANDMARKS.RIGHT_WRIST,
-        POSE_LANDMARKS.LEFT_HIP, POSE_LANDMARKS.RIGHT_HIP,
-        POSE_LANDMARKS.LEFT_KNEE, POSE_LANDMARKS.RIGHT_KNEE,
-        POSE_LANDMARKS.LEFT_ANKLE, POSE_LANDMARKS.RIGHT_ANKLE
-      ].includes(idx);
-
-      const dotRadius = isMajorJoint ? 5.5 : 3.5;
-      const haloRadius = isMajorJoint ? 8.5 : 5.5;
-
-      // Outer cyan glow
-      c.fillStyle = 'rgba(6, 182, 212, 0.35)';
-      c.beginPath();
-      c.arc(p.x, p.y, haloRadius, 0, 2 * Math.PI);
-      c.fill();
-
-      // Cyan ring
-      c.strokeStyle = '#06b6d4';
-      c.lineWidth = 2;
-      c.beginPath();
-      c.arc(p.x, p.y, dotRadius + 1.5, 0, 2 * Math.PI);
-      c.stroke();
-
-      // Solid white center core
-      c.fillStyle = '#ffffff';
-      c.beginPath();
-      c.arc(p.x, p.y, dotRadius, 0, 2 * Math.PI);
-      c.fill();
-    }
+    // Solid white center core
+    c.fillStyle = '#ffffff';
+    c.beginPath();
+    c.arc(p.x, p.y, dotRadius, 0, 2 * Math.PI);
+    c.fill();
   });
 
   c.restore();

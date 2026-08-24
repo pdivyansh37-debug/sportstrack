@@ -437,7 +437,8 @@ export function evaluateACLRisk(landmarks, exerciseType = 'squat', sportId = 'ge
     feedbacks,
     lessScore,
     riskBreakdown: { valgusPenalty, flexionPenalty, asymmetryPenalty, trunkPenalty }
-  }
+  };
+}
 
   /**
    * Jump Kinematics & Hang-Time Calculator
