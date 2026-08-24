@@ -72,6 +72,19 @@ export class AthleteProfileManager {
     this.save();
   }
 
+  updateAthlete(id, athleteData) {
+    const athlete = this.athletes.find(a => a.id === id);
+    if (!athlete) return null;
+    if (athleteData.name !== undefined) athlete.name = athleteData.name;
+    if (athleteData.sport !== undefined) athlete.sport = athleteData.sport;
+    if (athleteData.position !== undefined) athlete.position = athleteData.position;
+    if (athleteData.dominantLeg !== undefined) athlete.dominantLeg = athleteData.dominantLeg;
+    if (athleteData.injuryHistory !== undefined) athlete.injuryHistory = athleteData.injuryHistory;
+    if (athleteData.notes !== undefined) athlete.notes = athleteData.notes;
+    this.save();
+    return athlete;
+  }
+
   createAthlete(athleteData) {
     const newAthlete = {
       id: 'athlete_' + Date.now(),

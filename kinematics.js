@@ -83,9 +83,53 @@ export const SPORTS_PROFILES = {
 };
 
 /**
- * Calculates angle between three 2D/3D points with vertex at point B (degrees)
+ * Temporal Exponential Moving Average (EMA) Landmark Smoother
+ * Eliminates webcam frame jitter while preserving rapid athletic motion dynamics.
+ */
+export class LandmarkSmoother {
+  constructor(alpha = 0.45) {
+    this.alpha = alpha;
+    this.smoothedLandmarks = null;
+  }
+
+  reset() {
+    this.smoothedLandmarks = null;
+  }
+
+  smooth(rawLandmarks) {
+    if (!rawLandmarks || rawLandmarks.length === 0) return rawLandmarks;
+    
+    if (!this.smoothedLandmarks || this.smoothedLandmarks.length !== rawLandmarks.length) {
+      this.smoothedLandmarks = rawLandmarks.map(pt => ({ ...pt }));
+      return this.smoothedLandmarks;
+    }
+
+    for (let i = 0; i < rawLandmarks.length; i++) {
+      const raw = rawLandmarks[i];
+      const prev = this.smoothedLandmarks[i];
+      
+      // Dynamic velocity-sensitive smoothing (higher responsiveness for rapid motion)
+      const dist = Math.hypot(raw.x - prev.x, raw.y - prev.y);
+      const adaptiveAlpha = Math.min(0.85, Math.max(this.alpha, this.alpha + dist * 3.0));
+
+      prev.x = prev.x + adaptiveAlpha * (raw.x - prev.x);
+      prev.y = prev.y + adaptiveAlpha * (raw.y - prev.y);
+      prev.z = (prev.z || 0) + adaptiveAlpha * ((raw.z || 0) - (prev.z || 0));
+      prev.visibility = raw.visibility;
+    }
+
+    return this.smoothedLandmarks;
+  }
+}
+
+/**
+ * Calculates 2D planar angle between three points with vertex at point B (degrees)
  */
 export function calculateAngle(a, b, c) {
+  return calculateAngle2D(a, b, c);
+}
+
+export function calculateAngle2D(a, b, c) {
   if (!a || !b || !c) return 180;
   
   const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
@@ -98,31 +142,105 @@ export function calculateAngle(a, b, c) {
 }
 
 /**
- * Calculates Frontal Plane Projection Angle (FPPA) for knee valgus assessment
+ * Calculates 3D spatial angle between vectors BA and BC using coordinates (x, y, z)
  */
-export function calculateKneeValgusFPPA(hip, knee, ankle, isLeft = true) {
-  if (!hip || !knee || !ankle) return { fppa: 180, valgusCollapseDeg: 0, isValgus: false };
+export function calculateAngle3D(a, b, c, depthScale = 1.2) {
+  if (!a || !b || !c) return 180;
 
-  const angle = calculateAngle(hip, knee, ankle);
-  const collapse = Math.max(0, 180 - angle);
-  const isValgus = collapse > 8;
-  
+  const v1 = {
+    x: a.x - b.x,
+    y: a.y - b.y,
+    z: ((a.z || 0) - (b.z || 0)) * depthScale
+  };
+  const v2 = {
+    x: c.x - b.x,
+    y: c.y - b.y,
+    z: ((c.z || 0) - (b.z || 0)) * depthScale
+  };
+
+  const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+  const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y + v1.z * v1.z);
+  const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y + v2.z * v2.z);
+
+  if (mag1 === 0 || mag2 === 0) return 180;
+
+  const cosTheta = Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)));
+  const angle = Math.acos(cosTheta) * (180.0 / Math.PI);
+  return Math.round(angle * 10) / 10;
+}
+
+/**
+ * Calculates true Frontal Plane Projection Angle (FPPA) and Medial Knee Valgus Collapse.
+ * Distinguishes between dangerous Medial Cave (valgus) and safe/beneficial Lateral Flare (varus).
+ */
+export function calculateKneeValgusFPPA(hip, knee, ankle, isLeft = true, oppositeHip = null) {
+  if (!hip || !knee || !ankle) {
+    return { fppa: 180, valgusCollapseDeg: 0, isValgus: false, direction: 'neutral' };
+  }
+
+  // 1. Calculate the mechanical reference axis from Hip to Ankle
+  const verticalDelta = Math.max(0.001, ankle.y - hip.y);
+  const kneeProgress = Math.max(0, Math.min(1, (knee.y - hip.y) / verticalDelta));
+  const neutralAxisX = hip.x + kneeProgress * (ankle.x - hip.x);
+
+  // 2. Identify the anatomical center/midline of the pelvis
+  const midPelvisX = oppositeHip ? (hip.x + oppositeHip.x) / 2 : (isLeft ? hip.x - 0.1 : hip.x + 0.1);
+  const medialSign = Math.sign(midPelvisX - hip.x);
+
+  // 3. Medial displacement is positive when the knee moves towards the body's midline
+  const medialOffset = (knee.x - neutralAxisX) * medialSign;
+
+  // 4. Calculate 2D Frontal Plane Projection Angle
+  const planarAngle = calculateAngle2D(hip, knee, ankle);
+  const rawDeviation = Math.abs(180 - planarAngle);
+
+  // Only inward (medial) displacement beyond physiological tolerance creates valgus ACL risk
+  if (medialOffset > 0.006 && rawDeviation > 4) {
+    const valgusCollapse = Math.min(45, Math.round(rawDeviation * 10) / 10);
+    return {
+      fppa: Math.round((180 - valgusCollapse) * 10) / 10,
+      valgusCollapseDeg: valgusCollapse,
+      isValgus: valgusCollapse > 7.5,
+      direction: 'valgus'
+    };
+  }
+
+  // Neutral or Lateral (Varus / Knees pushed out properly)
   return {
-    fppa: angle,
-    valgusCollapseDeg: Math.round(collapse * 10) / 10,
-    isValgus
+    fppa: 180,
+    valgusCollapseDeg: 0,
+    isValgus: false,
+    direction: medialOffset < -0.006 ? 'varus' : 'neutral'
   };
 }
 
 /**
- * Calculates sagittal Knee Flexion angle
+ * Calculates true Sagittal Knee Flexion depth combining 3D landmark geometry and frontal vertical compression.
+ * Standing extension = 175°-180°, Parallel Squat = ~90°, Deep Squat = ~65°-75°.
  */
 export function calculateKneeFlexion(hip, knee, ankle) {
-  return calculateAngle(hip, knee, ankle);
+  if (!hip || !knee || !ankle) return 180;
+
+  // 1. 3D spatial joint angle
+  const angle3D = calculateAngle3D(hip, knee, ankle, 1.4);
+
+  // 2. Vertical kinematic leg segment compression
+  const thighLen = Math.hypot(knee.x - hip.x, knee.y - hip.y);
+  const shankLen = Math.hypot(ankle.x - knee.x, ankle.y - knee.y);
+  const totalLegLen = Math.max(0.08, thighLen + shankLen);
+  const verticalSpan = Math.max(0.01, Math.abs(ankle.y - hip.y));
+  const compressionRatio = Math.min(1.0, verticalSpan / totalLegLen);
+
+  // Map compression ratio [0.35..1.0] to anatomical angle [60°..180°]
+  const compressionAngle = Math.max(60, Math.min(180, 60 + Math.pow(compressionRatio, 1.2) * 120));
+
+  // Fuse 3D vector calculation with vertical compression for rock-solid stability
+  const fusedFlexion = 0.55 * angle3D + 0.45 * compressionAngle;
+  return Math.round(fusedFlexion * 10) / 10;
 }
 
 /**
- * Calculates Trunk Lateral & Sagittal Lean angle relative to vertical axis
+ * Calculates Trunk Lateral Lean angle relative to gravity/vertical axis
  */
 export function calculateTrunkLean(leftShoulder, rightShoulder, leftHip, rightHip) {
   if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return 0;
@@ -137,10 +255,20 @@ export function calculateTrunkLean(leftShoulder, rightShoulder, leftHip, rightHi
   };
   
   const dx = midShoulder.x - midHip.x;
-  const dy = midShoulder.y - midHip.y;
+  const dy = Math.max(0.01, Math.abs(midShoulder.y - midHip.y));
   
-  const leanRadians = Math.atan2(Math.abs(dx), Math.abs(dy));
+  const leanRadians = Math.atan2(Math.abs(dx), dy);
   return Math.round((leanRadians * 180 / Math.PI) * 10) / 10;
+}
+
+/**
+ * Calculates Pelvic Tilt (Trendelenburg Angle) in degrees
+ */
+export function calculatePelvicTilt(leftHip, rightHip) {
+  if (!leftHip || !rightHip) return 0;
+  const dx = Math.abs(leftHip.x - rightHip.x);
+  const dy = Math.abs(leftHip.y - rightHip.y);
+  return Math.round((Math.atan2(dy, Math.max(0.01, dx)) * 180 / Math.PI) * 10) / 10;
 }
 
 /**
@@ -172,6 +300,7 @@ export function evaluateACLRisk(landmarks, exerciseType = 'squat', sportId = 'ge
       avgFlexion: 180,
       asymmetry: 0,
       trunkLean: 0,
+      pelvicTilt: 0,
       feedbacks: ['Position yourself fully in camera frame'],
       lessScore: 0,
       riskBreakdown: { valgusPenalty: 0, flexionPenalty: 0, asymmetryPenalty: 0, trunkPenalty: 0 }
@@ -189,14 +318,15 @@ export function evaluateACLRisk(landmarks, exerciseType = 'squat', sportId = 'ge
   const lShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER];
   const rShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
 
-  const leftValgusData = calculateKneeValgusFPPA(lHip, lKnee, lAnkle, true);
-  const rightValgusData = calculateKneeValgusFPPA(rHip, rKnee, rAnkle, false);
+  const leftValgusData = calculateKneeValgusFPPA(lHip, lKnee, lAnkle, true, rHip);
+  const rightValgusData = calculateKneeValgusFPPA(rHip, rKnee, rAnkle, false, lHip);
 
   const leftFlexion = calculateKneeFlexion(lHip, lKnee, lAnkle);
   const rightFlexion = calculateKneeFlexion(rHip, rKnee, rAnkle);
   const avgFlexion = (leftFlexion + rightFlexion) / 2;
 
   const trunkLean = calculateTrunkLean(lShoulder, rShoulder, lHip, rHip);
+  const pelvicTilt = calculatePelvicTilt(lHip, rHip);
   const asymmetry = calculateAsymmetry(leftValgusData.valgusCollapseDeg, rightValgusData.valgusCollapseDeg);
 
   const feedbacks = [];
@@ -205,76 +335,85 @@ export function evaluateACLRisk(landmarks, exerciseType = 'squat', sportId = 'ge
   let asymmetryPenalty = 0;
   let trunkPenalty = 0;
 
-  // 1. Dynamic Knee Valgus Penalty
+  // 1. Dynamic Knee Valgus Penalty & Specific Joint Directives
   const maxCollapse = Math.max(leftValgusData.valgusCollapseDeg, rightValgusData.valgusCollapseDeg);
-  if (maxCollapse > 20) {
-    valgusPenalty = 55 * profile.valgusWeight;
-    feedbacks.push(`[${profile.name}] Severe knee valgus collapse! Push knees outward aligned with toes.`);
-  } else if (maxCollapse > 14) {
-    valgusPenalty = 38 * profile.valgusWeight;
-    feedbacks.push(`[${profile.name}] Inward knee cave detected. Engage glutes to resist valgus moment.`);
-  } else if (maxCollapse > 7) {
-    valgusPenalty = 18 * profile.valgusWeight;
-    feedbacks.push(`[${profile.name}] Slight medial knee tracking.`);
+  
+  if (leftValgusData.valgusCollapseDeg > 12 && rightValgusData.valgusCollapseDeg > 12) {
+    valgusPenalty = Math.min(65, 45 + (maxCollapse - 12) * 1.5) * profile.valgusWeight;
+    feedbacks.push(`[${profile.name}] Bilateral knee valgus! Push knees out aligned with toes.`);
+  } else if (leftValgusData.valgusCollapseDeg > 10) {
+    valgusPenalty = Math.min(55, 35 + leftValgusData.valgusCollapseDeg * 1.2) * profile.valgusWeight;
+    feedbacks.push(`[${profile.name}] Left knee caving inward (${leftValgusData.valgusCollapseDeg}°). Drive left knee outward over pinky toe.`);
+  } else if (rightValgusData.valgusCollapseDeg > 10) {
+    valgusPenalty = Math.min(55, 35 + rightValgusData.valgusCollapseDeg * 1.2) * profile.valgusWeight;
+    feedbacks.push(`[${profile.name}] Right knee caving inward (${rightValgusData.valgusCollapseDeg}°). Drive right knee outward over pinky toe.`);
+  } else if (maxCollapse > 6) {
+    valgusPenalty = 16 * profile.valgusWeight;
+    feedbacks.push(`[${profile.name}] Slight medial knee tracking. Maintain glute activation.`);
   }
 
-  // 2. Landing / Flexion Stiffness Penalty
+  // 2. Landing / Flexion Stiffness Penalty (LESS Criteria)
   if (exerciseType === 'drop_jump' || exerciseType === 'jump') {
     if (avgFlexion > 155) {
-      flexionPenalty = 25 * profile.landingWeight;
-      feedbacks.push(`[${profile.name}] Stiff landing! Flex knees to at least 45° to dissipate ground impact.`);
+      flexionPenalty = 28 * profile.landingWeight;
+      feedbacks.push(`[${profile.name}] Stiff landing detected! Flex knees to at least 45° to dissipate ground reaction forces.`);
     } else if (avgFlexion > 140) {
-      flexionPenalty = 14 * profile.landingWeight;
-      feedbacks.push(`[${profile.name}] Land softer — increase knee flexion.`);
+      flexionPenalty = 15 * profile.landingWeight;
+      feedbacks.push(`[${profile.name}] Land softer — increase knee flexion on impact.`);
     }
-  } else if (exerciseType === 'squat' && avgFlexion < 110) {
-    if (maxCollapse > 10) {
-      valgusPenalty += 10 * profile.valgusWeight;
-      feedbacks.push(`[${profile.name}] Knee cave at the bottom of squat.`);
+  } else if (exerciseType === 'squat' && avgFlexion < 105) {
+    if (maxCollapse > 8) {
+      valgusPenalty += 12 * profile.valgusWeight;
+      feedbacks.push(`[${profile.name}] Knee cave at bottom of squat. Engage abduction muscles.`);
     }
   }
 
   // 3. Asymmetry Penalty
-  if (asymmetry > 35) {
+  if (asymmetry > 35 && maxCollapse > 5) {
     asymmetryPenalty = 14 * profile.asymmetryWeight;
-    feedbacks.push(`[${profile.name}] Uneven limb loading: ${leftValgusData.valgusCollapseDeg > rightValgusData.valgusCollapseDeg ? 'Left' : 'Right'} knee under higher torque.`);
-  } else if (asymmetry > 20) {
+    feedbacks.push(`[${profile.name}] High limb asymmetry (${asymmetry}%). Balance load equally.`);
+  } else if (asymmetry > 20 && maxCollapse > 5) {
     asymmetryPenalty = 7 * profile.asymmetryWeight;
   }
 
-  // 4. Trunk Sway Penalty
+  // 4. Trunk Sway & Pelvic Tilt Penalty
   if (trunkLean > 14) {
-    trunkPenalty = 8 * profile.trunkWeight;
-    feedbacks.push(`[${profile.name}] Torso sway increases lateral knee strain. Maintain neutral spine.`);
+    trunkPenalty = 10 * profile.trunkWeight;
+    feedbacks.push(`[${profile.name}] Trunk tilt (${trunkLean}°). Maintain upright core stability.`);
   } else if (trunkLean > 8) {
-    trunkPenalty = 4 * profile.trunkWeight;
+    trunkPenalty = 5 * profile.trunkWeight;
+  }
+
+  if (pelvicTilt > 8) {
+    trunkPenalty += 6;
   }
 
   // Calculate LESS (Landing Error Scoring System) Score (0 to 15)
   let lessScore = 0;
   if (maxCollapse > 10) lessScore += 2;
   else if (maxCollapse > 5) lessScore += 1;
-  if (avgFlexion > 150) lessScore += 2; // stiff
+  if (avgFlexion > 150) lessScore += 2; // stiff landing
   else if (avgFlexion > 135) lessScore += 1;
   if (trunkLean > 10) lessScore += 1;
   if (asymmetry > 25) lessScore += 1;
+  if (pelvicTilt > 6) lessScore += 1;
 
   let totalScore = Math.min(100, Math.round(valgusPenalty + flexionPenalty + asymmetryPenalty + trunkPenalty));
 
   if (feedbacks.length === 0) {
-    feedbacks.push(`[${profile.name}] Optimal joint alignment! Biomechanics look safe.`);
+    feedbacks.push(`[${profile.name}] Optimal joint alignment! Biomechanics safe and stable.`);
   }
 
   let level = 'Low Risk';
   let color = '#10b981';
 
-  if (totalScore >= 70) {
+  if (totalScore >= 65) {
     level = 'Severe Risk';
     color = '#ef4444';
-  } else if (totalScore >= 45) {
+  } else if (totalScore >= 40) {
     level = 'High Risk';
     color = '#f97316';
-  } else if (totalScore >= 20) {
+  } else if (totalScore >= 18) {
     level = 'Moderate Risk';
     color = '#f59e0b';
   }
@@ -287,15 +426,17 @@ export function evaluateACLRisk(landmarks, exerciseType = 'squat', sportId = 'ge
     valgusRight: rightValgusData.fppa,
     collapseLeft: leftValgusData.valgusCollapseDeg,
     collapseRight: rightValgusData.valgusCollapseDeg,
+    directionLeft: leftValgusData.direction,
+    directionRight: rightValgusData.direction,
     flexionLeft: Math.round(leftFlexion),
     flexionRight: Math.round(rightFlexion),
     avgFlexion: Math.round(avgFlexion),
     asymmetry,
     trunkLean,
+    pelvicTilt,
     feedbacks,
     lessScore,
     riskBreakdown: { valgusPenalty, flexionPenalty, asymmetryPenalty, trunkPenalty }
-  };
 }
 
 /**
@@ -440,8 +581,8 @@ export class RepetitionTracker {
       case 'drop_jump':
       case 'single_leg_squat':
       case 'lunge': {
-        const leftKnee = calculateAngle(lHip, lKnee, lAnkle);
-        const rightKnee = calculateAngle(rHip, rKnee, rAnkle);
+        const leftKnee = calculateKneeFlexion(lHip, lKnee, lAnkle);
+        const rightKnee = calculateKneeFlexion(rHip, rKnee, rAnkle);
         primaryMetric = (this.exerciseId === 'single_leg_squat' || this.exerciseId === 'lunge') ? leftKnee : (leftKnee + rightKnee) / 2;
 
         this.currentROM = Math.min(100, Math.max(0, Math.round(((180 - primaryMetric) / 90) * 100)));
@@ -459,32 +600,36 @@ export class RepetitionTracker {
           }
           if (primaryMetric <= 110) {
             this.currentPhase = 'BOTTOM';
-          } else if (primaryMetric > this.minAngleReached + 15) {
+          } else if (primaryMetric > this.minAngleReached + 12) {
             this.currentPhase = 'CONCENTRIC';
           }
         } else if (this.currentPhase === 'BOTTOM') {
           if (primaryMetric < this.minAngleReached) {
             this.minAngleReached = primaryMetric;
           }
-          if (primaryMetric > 125) {
+          if (primaryMetric > 120) {
             this.currentPhase = 'CONCENTRIC';
           }
         } else if (this.currentPhase === 'CONCENTRIC') {
           if (primaryMetric >= 165) {
-            this.repCount++;
-            newRepCompleted = true;
-            const repDurationSec = ((Date.now() - (this.repStartTime || Date.now())) / 1000).toFixed(1);
-            const qualityGrade = this.peakRiskInRep > 60 ? 'C (High Risk)' : this.peakRiskInRep > 30 ? 'B (Moderate)' : 'A (Excellent)';
-            
-            this.repHistory.push({
-              repNumber: this.repCount,
-              durationSec: repDurationSec,
-              minDepthDeg: Math.round(this.minAngleReached),
-              peakRisk: this.peakRiskInRep,
-              grade: qualityGrade,
-              peakMoment: this.peakValgusMoment,
-              timestamp: new Date().toLocaleTimeString()
-            });
+            const repDurationMs = Date.now() - (this.repStartTime || Date.now());
+            // Filter noise: require at least 500ms duration for valid rep
+            if (repDurationMs > 500) {
+              this.repCount++;
+              newRepCompleted = true;
+              const repDurationSec = (repDurationMs / 1000).toFixed(1);
+              const qualityGrade = this.peakRiskInRep > 60 ? 'C (High Risk)' : this.peakRiskInRep > 30 ? 'B (Moderate)' : 'A (Excellent)';
+              
+              this.repHistory.push({
+                repNumber: this.repCount,
+                durationSec: repDurationSec,
+                minDepthDeg: Math.round(this.minAngleReached),
+                peakRisk: this.peakRiskInRep,
+                grade: qualityGrade,
+                peakMoment: this.peakValgusMoment,
+                timestamp: new Date().toLocaleTimeString()
+              });
+            }
 
             this.currentPhase = 'IDLE';
             this.peakRiskInRep = 0;

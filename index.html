@@ -51,17 +51,20 @@
 
     <!-- Header Actions -->
     <div class="header-actions">
-      <button id="athleteBadgeBtn" class="btn-icon" title="Manage Athlete Profiles & Longitudinal History">
-        👤 Demo Athlete (BASKETBALL)
+      <button id="athleteBadgeBtn" class="profile-badge-btn" title="Athlete / Patient Profile & Recovery History">
+        <span class="avatar-circle">👤</span>
+        <span class="profile-meta">
+          <span class="profile-name" id="athleteHeaderName">Demo Athlete</span>
+          <span class="profile-sport-tag" id="athleteHeaderSport">BASKETBALL</span>
+        </span>
       </button>
-      <button id="alertsBtn" class="btn-icon" style="border-color: var(--rose-danger); color: var(--rose-danger);" title="Configure Critical Injury Risk Alerts & Dispatches">
-        🚨 Alerts & Dispatch
+      <button id="reportBtn" class="btn-icon btn-report-action" title="Biomechanical Assessment Report">
+        <span class="btn-symbol">📋</span>
+        <span class="btn-text">Report</span>
       </button>
-      <button id="toggleVoiceBtn" class="btn-icon active">
-        🔊 Voice: Active
-      </button>
-      <button id="reportBtn" class="btn-icon" style="border-color: var(--cyan-primary); color: var(--cyan-primary);">
-        📋 Assessment Report
+      <button id="settingsBtn" class="btn-icon btn-settings-action" title="System Settings • Voice Coaching, Alerts & Audio">
+        <span class="btn-symbol">⚙️</span>
+        <span class="btn-text">Settings</span>
       </button>
     </div>
   </header>
@@ -350,82 +353,179 @@
     </footer>
   </main>
 
-  <!-- Alerts & Notification Dispatch Settings Modal -->
-  <div id="alertsModal" class="modal-backdrop">
-    <div class="modal-card" style="max-width: 820px;">
+  <!-- Unified System Settings Modal (Voice Coaching, Injury Alerts, Dispatch & Audio) -->
+  <div id="settingsModal" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 880px;">
       <div class="modal-header">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 1.25rem;">🚨</span>
-          <h2>Critical Injury Alerts & Notification Dispatch</h2>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.35rem;">⚙️</span>
+          <div>
+            <h2>System Settings & Audio / Alerts</h2>
+            <div style="font-size: 0.75rem; color: var(--text-dim);">Configure real-time AI voice coach, injury alerts, and incident dispatch channels</div>
+          </div>
         </div>
-        <button id="closeAlertsModalBtn" class="modal-close-btn">&times;</button>
+        <button id="closeSettingsModalBtn" class="modal-close-btn">&times;</button>
       </div>
 
       <div class="modal-body">
-        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem;">
-          <!-- Left: Alert Configuration -->
-          <div style="background: rgba(255, 255, 255, 0.02); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-            <h3 style="color: var(--rose-danger); font-size: 0.95rem; margin-bottom: 1rem;">⚙️ Alert Triggers & Channels</h3>
-
-            <!-- Threshold Slider -->
-            <div class="form-group" style="margin-bottom: 1.25rem;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                <label>Injury Risk Alert Threshold:</label>
-                <strong id="alertThresholdValue" style="color: var(--rose-danger);">60%</strong>
+        <div class="settings-grid">
+          <!-- Card 1: AI Voice Coach & Audio Guidance -->
+          <div class="settings-section-card">
+            <div class="section-card-header">
+              <span class="section-icon">🔊</span>
+              <div>
+                <h3>AI Voice Coach & Audio Cues</h3>
+                <p>Real-time speech cues and telemetry audio chimes</p>
               </div>
-              <input type="range" id="alertThresholdSlider" min="30" max="90" value="60" step="5" style="width: 100%; accent-color: var(--rose-danger);" />
-              <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 4px;">Triggers alarm when knee valgus collapse or landing impact breaches this % level.</div>
             </div>
 
-            <!-- Notification Channels -->
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem;">
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
-                <input type="checkbox" id="enableDesktopNotifs" checked />
-                <span>📱 Browser Desktop Push Notifications</span>
-              </label>
+            <div class="settings-options-list">
+              <!-- Master Voice Toggle -->
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-title">Spoken AI Voice Feedback</span>
+                  <span class="setting-desc">Real-time biomechanical correction cues</span>
+                </div>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="voiceCoachToggle" checked />
+                  <span class="slider-round"></span>
+                </label>
+              </div>
 
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
-                <input type="checkbox" id="enableAudioSiren" checked />
-                <span>🚨 Emergency Audio Siren & Spoken Voice Alert</span>
-              </label>
+              <!-- Speech Rate Slider -->
+              <div class="form-group" style="margin-top: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <label for="voiceRateSlider">Voice Speech Rate:</label>
+                  <strong id="voiceRateValue" style="color: var(--cyan-primary);">1.05x</strong>
+                </div>
+                <input type="range" id="voiceRateSlider" min="0.8" max="1.4" value="1.05" step="0.05" class="custom-range" />
+              </div>
 
-              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
-                <input type="checkbox" id="enableWebhookToggle" />
-                <span>💬 Webhook Dispatch (Slack / Discord / Clinic EHR API)</span>
-              </label>
-            </div>
+              <!-- Telemetry Chimes Toggle -->
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-title">Repetition & Telemetry Chimes</span>
+                  <span class="setting-desc">Auditory beeps on successful reps & warning states</span>
+                </div>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="enableChimesToggle" checked />
+                  <span class="slider-round"></span>
+                </label>
+              </div>
 
-            <div class="form-group" style="margin-bottom: 0.75rem;">
-              <label>Webhook URL (Optional):</label>
-              <input type="url" id="webhookUrlInput" class="form-input" placeholder="https://discord.com/api/webhooks/... or Slack Webhook" />
-            </div>
+              <!-- Emergency Warning Callouts -->
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-title">Emergency Spoken Warning</span>
+                  <span class="setting-desc">Immediate voice override when valgus threshold is breached</span>
+                </div>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="enableVoiceAlertsToggle" checked />
+                  <span class="slider-round"></span>
+                </label>
+              </div>
 
-            <div class="form-group" style="margin-bottom: 1rem;">
-              <label>Coach / Physiotherapist Email:</label>
-              <input type="email" id="coachEmailInput" class="form-input" placeholder="physio@sportsclinic.com" />
-            </div>
-
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button id="saveAlertSettingsBtn" class="btn-primary" style="flex: 1;">💾 Save Alert Settings</button>
-              <button id="requestNotifPermBtn" class="btn-secondary" style="font-size: 0.78rem;">🔔 Allow Push</button>
-              <button id="testAlertBtn" class="btn-danger" style="font-size: 0.78rem;">⚡ Test Alert</button>
+              <div style="margin-top: 0.75rem;">
+                <button type="button" id="testVoiceBtn" class="btn-secondary" style="width: 100%; font-size: 0.8rem;">
+                  🔊 Test Spoken Voice Coach
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Right: Live Incident History & Quick Send -->
-          <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-              <h3 style="color: var(--cyan-primary); font-size: 0.95rem;">🚨 Recent Incident Log</h3>
-              <button id="sendEmailAlertBtn" class="btn-secondary" style="font-size: 0.72rem; padding: 4px 8px; border-color: var(--cyan-primary); color: var(--cyan-primary);">
-                📧 Email Alert
-              </button>
+          <!-- Card 2: Critical Injury Alerts & Notification Dispatch -->
+          <div class="settings-section-card">
+            <div class="section-card-header">
+              <span class="section-icon">🚨</span>
+              <div>
+                <h3>Critical Injury Alerts & Dispatch</h3>
+                <p>Threshold alarms, push notifications & clinic integration</p>
+              </div>
             </div>
-            
-            <div id="incidentLogsList" class="incident-history-list" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
-              <!-- Dynamically populated -->
+
+            <div class="settings-options-list">
+              <!-- Threshold Slider -->
+              <div class="form-group">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <label for="alertThresholdSlider">Injury Risk Alert Threshold:</label>
+                  <strong id="alertThresholdValue" style="color: var(--rose-danger);">60%</strong>
+                </div>
+                <input type="range" id="alertThresholdSlider" min="30" max="90" value="60" step="5" class="custom-range range-danger" />
+                <div class="form-helper" style="font-size: 0.72rem; color: var(--text-dim); margin-top: 3px;">Triggers alarm when knee valgus collapse breaches this risk score.</div>
+              </div>
+
+              <!-- Notification Channels -->
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-title">📱 Desktop Push Notifications</span>
+                  <span class="setting-desc">Instant browser notification on critical event</span>
+                </div>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="enableDesktopNotifs" checked />
+                  <span class="slider-round"></span>
+                </label>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-title">🚨 Audio Siren & Visual Flasher</span>
+                  <span class="setting-desc">High-pitch siren tone and flashing viewport border</span>
+                </div>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="enableAudioSiren" checked />
+                  <span class="slider-round"></span>
+                </label>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <span class="setting-title">💬 Webhook Dispatch (EHR / Discord / Slack)</span>
+                  <span class="setting-desc">Dispatch payload to clinical endpoint or coach channel</span>
+                </div>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="enableWebhookToggle" />
+                  <span class="slider-round"></span>
+                </label>
+              </div>
+
+              <div class="form-group" style="margin-top: 0.5rem;">
+                <label for="webhookUrlInput">Webhook URL (Optional):</label>
+                <input type="url" id="webhookUrlInput" class="form-input" placeholder="https://discord.com/api/webhooks/... or Slack URL" />
+              </div>
+
+              <div class="form-group">
+                <label for="coachEmailInput">Physiotherapist / Coach Email:</label>
+                <input type="email" id="coachEmailInput" class="form-input" placeholder="physio@sportsclinic.com" />
+              </div>
+
+              <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap;">
+                <button type="button" id="requestNotifPermBtn" class="btn-secondary" style="flex: 1; font-size: 0.78rem;">🔔 Allow Push</button>
+                <button type="button" id="testAlertBtn" class="btn-danger" style="flex: 1; font-size: 0.78rem;">⚡ Test Siren Alert</button>
+              </div>
             </div>
           </div>
         </div>
+
+        <!-- Incident Log Section -->
+        <div class="incident-log-container" style="margin-top: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 0.95rem;">🚨</span>
+              <h3 style="color: var(--cyan-primary); font-size: 0.9rem; font-weight: 700;">Recent Injury Risk Incident Log</h3>
+            </div>
+            <button id="sendEmailAlertBtn" class="btn-secondary" style="font-size: 0.75rem; padding: 4px 10px; border-color: var(--cyan-primary); color: var(--cyan-primary);">
+              📧 Email Summary to Physio
+            </button>
+          </div>
+          <div id="incidentLogsList" class="incident-history-list" style="max-height: 180px; overflow-y: auto;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button id="saveSettingsBtn" class="btn-primary" style="padding: 9px 24px;">💾 Save Settings</button>
+        <button id="closeSettingsModalFooterBtn" class="btn-secondary">Close</button>
       </div>
     </div>
   </div>
@@ -462,15 +562,26 @@
   <div id="athleteModal" class="modal-backdrop">
     <div class="modal-card" style="max-width: 960px;">
       <div class="modal-header">
-        <h2>Athlete Profile & Longitudinal Recovery History</h2>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.35rem;">👤</span>
+          <div>
+            <h2>Athlete Profile & Movement History</h2>
+            <div style="font-size: 0.75rem; color: var(--text-dim);">Manage athlete attributes, sports profile, injury records & rehabilitation logs</div>
+          </div>
+        </div>
         <button id="closeAthleteModalBtn" class="modal-close-btn">&times;</button>
       </div>
       <div class="modal-body">
         <div class="athlete-profile-modal-grid">
           <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-              <h3 style="color: var(--cyan-primary); font-size: 1rem;">Switch / Create Athlete Profile</h3>
-              <select id="athleteSelectDropdown" class="custom-select" style="max-width: 200px;"></select>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 8px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 0.82rem; font-weight: 600; color: var(--cyan-primary);">Active Profile:</label>
+                <select id="athleteSelectDropdown" class="custom-select" style="min-width: 180px;"></select>
+              </div>
+              <button type="button" id="addNewAthleteBtn" class="btn-secondary" style="font-size: 0.75rem; padding: 4px 10px;">
+                ➕ New Profile
+              </button>
             </div>
             
             <form id="athleteForm" style="background: rgba(255,255,255,0.02); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
@@ -481,12 +592,12 @@
               <div class="form-group">
                 <label>Primary Sport:</label>
                 <select id="newAthleteSport" class="custom-select form-input">
-                  <option value="basketball">Basketball</option>
-                  <option value="football">Football / Soccer</option>
-                  <option value="badminton">Badminton / Volleyball</option>
-                  <option value="running">Athletics / Track</option>
-                  <option value="skiing">Skiing / Winter Sports</option>
-                  <option value="general">General Fitness / Rehab</option>
+                  <option value="basketball">🏀 Basketball</option>
+                  <option value="football">⚽ Football / Soccer</option>
+                  <option value="badminton">🏸 Badminton / Volleyball</option>
+                  <option value="running">🏃 Athletics / Track</option>
+                  <option value="skiing">🎿 Skiing / Winter Sports</option>
+                  <option value="general">🧘 General Fitness / Rehab</option>
                 </select>
               </div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -507,8 +618,8 @@
                 <input type="text" id="newAthleteInjury" class="form-input" placeholder="e.g. Right ACL Reconstruction 8 months ago" />
               </div>
               <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
-                <button type="submit" class="btn-primary" style="flex: 1;">💾 Save & Set Active Profile</button>
-                <button type="button" id="deleteAthleteBtn" class="btn-danger" style="padding: 8px 14px;">🗑️</button>
+                <button type="submit" class="btn-primary" style="flex: 1;">💾 Save Profile Details</button>
+                <button type="button" id="deleteAthleteBtn" class="btn-danger" style="padding: 8px 14px;" title="Delete Profile">🗑️</button>
               </div>
             </form>
           </div>

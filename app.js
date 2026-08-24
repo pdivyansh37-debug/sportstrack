@@ -16,13 +16,17 @@ import {
   evaluateACLRisk,
   JumpKinematicsTracker,
   RepetitionTracker,
-  SyntheticPoseGenerator
+  SyntheticPoseGenerator,
+  LandmarkSmoother
 } from './kinematics.js';
 
 import { AthleteProfileManager } from './athleteProfile.js';
 import { VoiceCoach } from './voiceCoach.js';
 import { ReportGenerator } from './reportGenerator.js';
 import { AlertManager } from './alertManager.js';
+
+// Landmark Temporal Smoother for High-Accuracy Pose Tracking
+const landmarkSmoother = new LandmarkSmoother(0.40);
 
 // Application State
 const state = {
@@ -89,8 +93,12 @@ const elements = {
   exerciseSelect: document.getElementById('exerciseSelect'),
   abilitySelect: document.getElementById('abilitySelect'),
   abilityGroup: document.getElementById('abilityGroup'),
+  
   athleteBadgeBtn: document.getElementById('athleteBadgeBtn'),
-  alertsBtn: document.getElementById('alertsBtn'),
+  athleteHeaderName: document.getElementById('athleteHeaderName'),
+  athleteHeaderSport: document.getElementById('athleteHeaderSport'),
+  reportBtn: document.getElementById('reportBtn'),
+  settingsBtn: document.getElementById('settingsBtn'),
   
   viewportCard: document.querySelector('.viewport-card'),
   webcam: document.getElementById('webcam'),
@@ -121,7 +129,6 @@ const elements = {
   toggleGridBtn: document.getElementById('toggleGrid'),
   toggleSilhouetteBtn: document.getElementById('toggleSilhouette'),
   toggleErrorOnlyBtn: document.getElementById('toggleErrorOnly'),
-  toggleVoiceBtn: document.getElementById('toggleVoiceBtn'),
   
   gaugeNum: document.getElementById('gaugeNum'),
   gaugeStatusBadge: document.getElementById('gaugeStatusBadge'),
@@ -143,7 +150,6 @@ const elements = {
   coachBeacon: document.getElementById('coachBeacon'),
   
   historyList: document.getElementById('historyList'),
-  reportBtn: document.getElementById('reportBtn'),
   downloadExcelBtn: document.getElementById('downloadExcelBtn'),
   modalExcelBtn: document.getElementById('modalExcelBtn'),
   downloadCsvBtn: document.getElementById('downloadCsvBtn'),
@@ -156,16 +162,31 @@ const elements = {
   closeModalBtn: document.getElementById('closeModalBtn'),
   printReportBtn: document.getElementById('printReportBtn'),
   
+  // Athlete Profile Modal Elements
   athleteModal: document.getElementById('athleteModal'),
   closeAthleteModalBtn: document.getElementById('closeAthleteModalBtn'),
   athleteForm: document.getElementById('athleteForm'),
   athleteSelectDropdown: document.getElementById('athleteSelectDropdown'),
+  addNewAthleteBtn: document.getElementById('addNewAthleteBtn'),
   athleteSessionHistoryList: document.getElementById('athleteSessionHistoryList'),
   deleteAthleteBtn: document.getElementById('deleteAthleteBtn'),
+  newAthleteName: document.getElementById('newAthleteName'),
+  newAthleteSport: document.getElementById('newAthleteSport'),
+  newAthletePosition: document.getElementById('newAthletePosition'),
+  newAthleteLeg: document.getElementById('newAthleteLeg'),
+  newAthleteInjury: document.getElementById('newAthleteInjury'),
 
-  // Alerts Modal Elements
-  alertsModal: document.getElementById('alertsModal'),
-  closeAlertsModalBtn: document.getElementById('closeAlertsModalBtn'),
+  // Unified System Settings Modal Elements
+  settingsModal: document.getElementById('settingsModal'),
+  closeSettingsModalBtn: document.getElementById('closeSettingsModalBtn'),
+  closeSettingsModalFooterBtn: document.getElementById('closeSettingsModalFooterBtn'),
+  saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+  voiceCoachToggle: document.getElementById('voiceCoachToggle'),
+  voiceRateSlider: document.getElementById('voiceRateSlider'),
+  voiceRateValue: document.getElementById('voiceRateValue'),
+  enableChimesToggle: document.getElementById('enableChimesToggle'),
+  enableVoiceAlertsToggle: document.getElementById('enableVoiceAlertsToggle'),
+  testVoiceBtn: document.getElementById('testVoiceBtn'),
   alertThresholdSlider: document.getElementById('alertThresholdSlider'),
   alertThresholdValue: document.getElementById('alertThresholdValue'),
   enableDesktopNotifs: document.getElementById('enableDesktopNotifs'),
@@ -174,7 +195,6 @@ const elements = {
   enableWebhookToggle: document.getElementById('enableWebhookToggle'),
   webhookUrlInput: document.getElementById('webhookUrlInput'),
   coachEmailInput: document.getElementById('coachEmailInput'),
-  saveAlertSettingsBtn: document.getElementById('saveAlertSettingsBtn'),
   testAlertBtn: document.getElementById('testAlertBtn'),
   sendEmailAlertBtn: document.getElementById('sendEmailAlertBtn'),
   incidentLogsList: document.getElementById('incidentLogsList')
@@ -194,7 +214,7 @@ async function initApp() {
   updateAthleteUI();
   initTelemetryChart();
   initMediaPipePose();
-  initAlertsUI();
+  initSettingsUI();
   
   switchVideoSource('demo');
 }
@@ -232,9 +252,8 @@ function setupEventListeners() {
     elements.athleteBadgeBtn.addEventListener('click', openAthleteModal);
   }
 
-  // Alerts Modal Button
-  if (elements.alertsBtn) {
-    elements.alertsBtn.addEventListener('click', openAlertsModal);
+  if (elements.addNewAthleteBtn) {
+    elements.addNewAthleteBtn.addEventListener('click', prepareNewAthleteForm);
   }
 
   elements.sourceCameraBtn.addEventListener('click', () => switchVideoSource('camera'));
@@ -266,7 +285,7 @@ function setupEventListeners() {
   }
 
   setupScrubberControls();
-  setupAlertsControls();
+  setupSettingsControls();
 
   // Layer Toggles
   elements.toggleSkeletonBtn.addEventListener('click', () => {
@@ -296,12 +315,6 @@ function setupEventListeners() {
       voiceCoach.speak(state.errorHighlightOnly ? 'Error focus mode active' : 'Showing all keypoints');
     });
   }
-
-  elements.toggleVoiceBtn.addEventListener('click', () => {
-    const isMuted = !voiceCoach.toggle();
-    elements.toggleVoiceBtn.textContent = isMuted ? '🔇 Voice: Muted' : '🔊 Voice: Active';
-    elements.toggleVoiceBtn.classList.toggle('active', !isMuted);
-  });
 
   elements.reportBtn.addEventListener('click', showBiomechanicalReport);
   
@@ -366,6 +379,7 @@ function setupEventListeners() {
     elements.athleteSelectDropdown.addEventListener('change', (e) => {
       athleteManager.setActiveAthlete(e.target.value);
       updateAthleteUI();
+      populateAthleteForm(athleteManager.getActiveAthlete());
       renderAthleteHistory();
     });
   }
@@ -375,25 +389,53 @@ function setupEventListeners() {
       if (confirm('Delete this athlete profile?')) {
         athleteManager.deleteAthlete(athleteManager.activeAthleteId);
         updateAthleteUI();
-        renderAthleteHistory();
+        openAthleteModal();
       }
     });
   }
 }
 
 /**
- * Setup Alerts Modal & Handlers
+ * Setup Settings Modal & Handlers (Voice & Alerts)
  */
-function setupAlertsControls() {
-  if (elements.closeAlertsModalBtn) {
-    elements.closeAlertsModalBtn.addEventListener('click', () => {
-      elements.alertsModal.classList.remove('active');
+function setupSettingsControls() {
+  if (elements.settingsBtn) {
+    elements.settingsBtn.addEventListener('click', openSettingsModal);
+  }
+  if (elements.closeSettingsModalBtn) {
+    elements.closeSettingsModalBtn.addEventListener('click', () => {
+      elements.settingsModal.classList.remove('active');
+    });
+  }
+  if (elements.closeSettingsModalFooterBtn) {
+    elements.closeSettingsModalFooterBtn.addEventListener('click', () => {
+      elements.settingsModal.classList.remove('active');
+    });
+  }
+
+  if (elements.voiceRateSlider) {
+    elements.voiceRateSlider.addEventListener('input', (e) => {
+      if (elements.voiceRateValue) {
+        elements.voiceRateValue.textContent = `${parseFloat(e.target.value).toFixed(2)}x`;
+      }
+    });
+  }
+
+  if (elements.testVoiceBtn) {
+    elements.testVoiceBtn.addEventListener('click', () => {
+      const rate = elements.voiceRateSlider ? parseFloat(elements.voiceRateSlider.value) : 1.05;
+      const chimes = elements.enableChimesToggle ? elements.enableChimesToggle.checked : true;
+      voiceCoach.setSettings({ enabled: true, rate, enableChimes: chimes });
+      voiceCoach.playChime('start');
+      voiceCoach.speak('Voice Coach online. Knee alignment is optimal. Keep chest upright and track knees over toes.', true);
     });
   }
 
   if (elements.alertThresholdSlider) {
     elements.alertThresholdSlider.addEventListener('input', (e) => {
-      elements.alertThresholdValue.textContent = `${e.target.value}%`;
+      if (elements.alertThresholdValue) {
+        elements.alertThresholdValue.textContent = `${e.target.value}%`;
+      }
     });
   }
 
@@ -401,42 +443,33 @@ function setupAlertsControls() {
     elements.requestNotifPermBtn.addEventListener('click', async () => {
       const granted = await alertManager.requestPermission();
       if (granted) {
-        elements.requestNotifPermBtn.textContent = '✅ Permission Granted';
+        elements.requestNotifPermBtn.textContent = '✅ Push Allowed';
         elements.requestNotifPermBtn.style.borderColor = 'var(--emerald-safe)';
         alertManager.sendDesktopNotification({
           riskScore: 75,
           athleteName: athleteManager.getActiveAthlete() ? athleteManager.getActiveAthlete().name : 'Demo Athlete',
-          exercise: 'Squat',
+          exercise: 'Deep Squat Alignment',
           valgusLeft: 162,
           valgusRight: 165,
-          feedback: 'Test Desktop Push Alert: MediaPipe Biomechanical Engine Connected!'
+          feedback: 'Test Push Alert: MediaPipe Biomechanical Engine Connected!'
         });
       } else {
-        alert('Browser desktop notifications were blocked in your browser settings.');
+        alert('Browser notifications were blocked. Please enable them in your browser settings.');
       }
     });
   }
 
-  if (elements.saveAlertSettingsBtn) {
-    elements.saveAlertSettingsBtn.addEventListener('click', () => {
-      alertManager.saveSettings({
-        riskThreshold: parseInt(elements.alertThresholdSlider.value),
-        enableDesktopNotifications: elements.enableDesktopNotifs.checked,
-        enableAudioSiren: elements.enableAudioSiren.checked,
-        enableWebhook: elements.enableWebhookToggle.checked,
-        webhookUrl: elements.webhookUrlInput.value.trim(),
-        coachEmail: elements.coachEmailInput.value.trim()
-      });
-      voiceCoach.speak('Alert settings updated');
-      elements.alertsModal.classList.remove('active');
-    });
+  if (elements.saveSettingsBtn) {
+    elements.saveSettingsBtn.addEventListener('click', saveAllSettings);
   }
 
   if (elements.testAlertBtn) {
     elements.testAlertBtn.addEventListener('click', () => {
       triggerVisualDangerAlarm();
       voiceCoach.playChime('danger_siren');
-      voiceCoach.speak('Warning! Knee valgus collapse detected!', true);
+      if (elements.enableVoiceAlertsToggle && elements.enableVoiceAlertsToggle.checked) {
+        voiceCoach.speak('Warning! Knee valgus collapse detected!', true);
+      }
       
       const testIncident = {
         id: 'test_' + Date.now(),
@@ -452,8 +485,10 @@ function setupAlertsControls() {
         feedback: 'Severe Left Knee Inward Collapse. Push knees outward!'
       };
 
-      alertManager.sendDesktopNotification(testIncident);
-      if (alertManager.settings.enableWebhook) {
+      if (elements.enableDesktopNotifs && elements.enableDesktopNotifs.checked) {
+        alertManager.sendDesktopNotification(testIncident);
+      }
+      if (elements.enableWebhookToggle && elements.enableWebhookToggle.checked) {
         alertManager.sendWebhookAlert(testIncident);
       }
       alertManager.incidentLogs.unshift(testIncident);
@@ -480,26 +515,66 @@ function setupAlertsControls() {
 }
 
 /**
- * Initializes Alerts UI Form values
+ * Initializes Settings UI Form values
  */
-function initAlertsUI() {
-  if (!elements.alertThresholdSlider) return;
-  elements.alertThresholdSlider.value = alertManager.settings.riskThreshold || 60;
-  elements.alertThresholdValue.textContent = `${alertManager.settings.riskThreshold || 60}%`;
-  elements.enableDesktopNotifs.checked = alertManager.settings.enableDesktopNotifications;
-  elements.enableAudioSiren.checked = alertManager.settings.enableAudioSiren;
-  elements.enableWebhookToggle.checked = alertManager.settings.enableWebhook;
-  elements.webhookUrlInput.value = alertManager.settings.webhookUrl || '';
-  elements.coachEmailInput.value = alertManager.settings.coachEmail || '';
+function initSettingsUI() {
+  if (elements.voiceCoachToggle) elements.voiceCoachToggle.checked = voiceCoach.enabled;
+  if (elements.voiceRateSlider) {
+    elements.voiceRateSlider.value = voiceCoach.rate || 1.05;
+    if (elements.voiceRateValue) elements.voiceRateValue.textContent = `${voiceCoach.rate || 1.05}x`;
+  }
+  if (elements.enableChimesToggle) elements.enableChimesToggle.checked = voiceCoach.enableChimes !== false;
+  if (elements.enableVoiceAlertsToggle) elements.enableVoiceAlertsToggle.checked = alertManager.settings.enableVoiceAlert !== false;
+
+  if (elements.alertThresholdSlider) {
+    elements.alertThresholdSlider.value = alertManager.settings.riskThreshold || 60;
+    if (elements.alertThresholdValue) elements.alertThresholdValue.textContent = `${alertManager.settings.riskThreshold || 60}%`;
+  }
+  if (elements.enableDesktopNotifs) elements.enableDesktopNotifs.checked = alertManager.settings.enableDesktopNotifications;
+  if (elements.enableAudioSiren) elements.enableAudioSiren.checked = alertManager.settings.enableAudioSiren;
+  if (elements.enableWebhookToggle) elements.enableWebhookToggle.checked = alertManager.settings.enableWebhook;
+  if (elements.webhookUrlInput) elements.webhookUrlInput.value = alertManager.settings.webhookUrl || '';
+  if (elements.coachEmailInput) elements.coachEmailInput.value = alertManager.settings.coachEmail || '';
 }
 
 /**
- * Opens Alerts & Notifications Modal
+ * Opens Settings Modal
  */
-function openAlertsModal() {
-  initAlertsUI();
+function openSettingsModal() {
+  initSettingsUI();
   renderIncidentLogs();
-  elements.alertsModal.classList.add('active');
+  elements.settingsModal.classList.add('active');
+}
+
+/**
+ * Saves All Voice & Alert Settings
+ */
+function saveAllSettings() {
+  const isVoiceActive = elements.voiceCoachToggle ? elements.voiceCoachToggle.checked : true;
+  const voiceRate = elements.voiceRateSlider ? parseFloat(elements.voiceRateSlider.value) : 1.05;
+  const isChimesActive = elements.enableChimesToggle ? elements.enableChimesToggle.checked : true;
+  const isVoiceAlertActive = elements.enableVoiceAlertsToggle ? elements.enableVoiceAlertsToggle.checked : true;
+
+  voiceCoach.setSettings({
+    enabled: isVoiceActive,
+    rate: voiceRate,
+    enableChimes: isChimesActive
+  });
+
+  alertManager.saveSettings({
+    riskThreshold: parseInt(elements.alertThresholdSlider.value),
+    enableDesktopNotifications: elements.enableDesktopNotifs.checked,
+    enableAudioSiren: elements.enableAudioSiren.checked,
+    enableVoiceAlert: isVoiceAlertActive,
+    enableWebhook: elements.enableWebhookToggle.checked,
+    webhookUrl: elements.webhookUrlInput.value.trim(),
+    coachEmail: elements.coachEmailInput.value.trim()
+  });
+
+  if (isVoiceActive) {
+    voiceCoach.speak('Settings updated');
+  }
+  elements.settingsModal.classList.remove('active');
 }
 
 /**
@@ -926,11 +1001,14 @@ async function switchVideoSource(source) {
   elements.videoUploadPlayer.style.display = 'none';
 
   if (source === 'camera') {
+    landmarkSmoother.reset();
     elements.webcam.style.display = 'block';
     startWebcam();
   } else if (source === 'upload') {
+    landmarkSmoother.reset();
     elements.videoUploadPlayer.style.display = 'block';
   } else if (source === 'demo') {
+    landmarkSmoother.reset();
     startDemoSimulation();
   }
 }
@@ -1039,7 +1117,8 @@ function onPoseResults(results) {
     return;
   }
 
-  const landmarks = results.poseLandmarks;
+  const rawLandmarks = results.poseLandmarks;
+  const landmarks = state.videoSource === 'demo' ? rawLandmarks : landmarkSmoother.smooth(rawLandmarks);
   const activeVideo = state.videoSource === 'camera' ? elements.webcam : state.videoSource === 'upload' ? elements.videoUploadPlayer : null;
   const isMirrored = state.videoSource === 'camera' && state.isMirrored;
   const activeAthlete = athleteManager.getActiveAthlete();
@@ -1562,8 +1641,46 @@ function drawBadge(c, x, y, text, color) {
  */
 function updateAthleteUI() {
   const athlete = athleteManager.getActiveAthlete();
-  if (athlete && elements.athleteBadgeBtn) {
-    elements.athleteBadgeBtn.innerHTML = `👤 ${athlete.name} (${athlete.sport.toUpperCase()})`;
+  if (athlete) {
+    if (elements.athleteHeaderName) {
+      elements.athleteHeaderName.textContent = athlete.name;
+    }
+    if (elements.athleteHeaderSport) {
+      elements.athleteHeaderSport.textContent = athlete.sport.toUpperCase();
+    }
+    if (elements.athleteBadgeBtn) {
+      elements.athleteBadgeBtn.title = `Active Athlete: ${athlete.name} (${athlete.sport.toUpperCase()}) • Click to Manage Profiles`;
+    }
+  }
+}
+
+/**
+ * Populates Athlete Edit Form
+ */
+function populateAthleteForm(athlete) {
+  if (!athlete) return;
+  if (elements.newAthleteName) elements.newAthleteName.value = athlete.name || '';
+  if (elements.newAthleteSport) elements.newAthleteSport.value = athlete.sport || 'basketball';
+  if (elements.newAthletePosition) elements.newAthletePosition.value = athlete.position || '';
+  if (elements.newAthleteLeg) elements.newAthleteLeg.value = athlete.dominantLeg || 'Right';
+  if (elements.newAthleteInjury) elements.newAthleteInjury.value = athlete.injuryHistory || '';
+  if (elements.athleteForm) {
+    elements.athleteForm.dataset.mode = 'edit';
+    elements.athleteForm.dataset.athleteId = athlete.id;
+  }
+}
+
+/**
+ * Prepares Blank Form for Creating New Athlete
+ */
+function prepareNewAthleteForm() {
+  if (elements.athleteForm) {
+    elements.athleteForm.reset();
+    elements.athleteForm.dataset.mode = 'create';
+    delete elements.athleteForm.dataset.athleteId;
+  }
+  if (elements.newAthleteName) {
+    elements.newAthleteName.focus();
   }
 }
 
@@ -1578,12 +1695,14 @@ function openAthleteModal() {
     athleteManager.athletes.forEach(a => {
       const opt = document.createElement('option');
       opt.value = a.id;
-      opt.textContent = `${a.name} • ${a.sport}`;
+      opt.textContent = `${a.name} (${a.sport.toUpperCase()})`;
       if (a.id === athleteManager.activeAthleteId) opt.selected = true;
       elements.athleteSelectDropdown.appendChild(opt);
     });
   }
 
+  const activeAthlete = athleteManager.getActiveAthlete();
+  populateAthleteForm(activeAthlete);
   renderAthleteHistory();
   elements.athleteModal.classList.add('active');
 }
@@ -1620,23 +1739,32 @@ function renderAthleteHistory() {
 }
 
 /**
- * Handles creation of new athlete
+ * Handles creation or edit of athlete profile
  */
 function handleNewAthleteSubmit(e) {
   e.preventDefault();
-  const name = document.getElementById('newAthleteName').value.trim();
-  const sport = document.getElementById('newAthleteSport').value;
-  const position = document.getElementById('newAthletePosition').value.trim();
-  const dominantLeg = document.getElementById('newAthleteLeg').value;
-  const injuryHistory = document.getElementById('newAthleteInjury').value.trim();
+  const name = elements.newAthleteName.value.trim();
+  const sport = elements.newAthleteSport.value;
+  const position = elements.newAthletePosition.value.trim();
+  const dominantLeg = elements.newAthleteLeg.value;
+  const injuryHistory = elements.newAthleteInjury.value.trim();
 
   if (!name) return;
 
-  athleteManager.createAthlete({ name, sport, position, dominantLeg, injuryHistory });
-  updateAthleteUI();
-  openAthleteModal();
-  e.target.reset();
-  voiceCoach.speak(`Profile created for ${name}`);
+  const isEditing = elements.athleteForm && elements.athleteForm.dataset.mode === 'edit' && elements.athleteForm.dataset.athleteId;
+  if (isEditing) {
+    athleteManager.updateAthlete(elements.athleteForm.dataset.athleteId, {
+      name, sport, position, dominantLeg, injuryHistory
+    });
+    updateAthleteUI();
+    openAthleteModal();
+    voiceCoach.speak(`Profile updated for ${name}`);
+  } else {
+    athleteManager.createAthlete({ name, sport, position, dominantLeg, injuryHistory });
+    updateAthleteUI();
+    openAthleteModal();
+    voiceCoach.speak(`Profile created for ${name}`);
+  }
 }
 
 /**
@@ -1707,6 +1835,7 @@ function resetSession() {
   state.isCalibrated = false;
   state.neutralOffsetValgusL = 0;
   state.neutralOffsetValgusR = 0;
+  landmarkSmoother.reset();
   repTracker.reset();
 
   elements.historyList.innerHTML = '';

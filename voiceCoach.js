@@ -6,6 +6,7 @@
 export class VoiceCoach {
   constructor() {
     this.enabled = true;
+    this.enableChimes = true;
     this.volume = 1.0;
     this.rate = 1.05;
     this.lastSpokenText = '';
@@ -21,6 +22,16 @@ export class VoiceCoach {
       if (AudioContext) {
         this.audioCtx = new AudioContext();
       }
+    }
+  }
+
+  setSettings(opts = {}) {
+    if (opts.enabled !== undefined) this.enabled = !!opts.enabled;
+    if (opts.enableChimes !== undefined) this.enableChimes = !!opts.enableChimes;
+    if (opts.rate !== undefined) this.rate = parseFloat(opts.rate) || 1.05;
+    if (opts.volume !== undefined) this.volume = parseFloat(opts.volume) || 1.0;
+    if (!this.enabled && this.synth) {
+      this.synth.cancel();
     }
   }
 
@@ -73,7 +84,7 @@ export class VoiceCoach {
    * Plays synthetic telemetry beeps and chimes using Web Audio API
    */
   playChime(type = 'rep_success') {
-    if (!this.enabled) return;
+    if (!this.enabled || !this.enableChimes) return;
     this.initAudio();
     if (!this.audioCtx) return;
 
