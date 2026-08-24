@@ -207,15 +207,42 @@ let demoAnimationFrameId = null;
 let telemetryChart = null;
 
 /**
+ * Initializes MediaPipe Pose Detector
+ */
+function initMediaPipePose() {
+  try {
+    if (window.Pose) {
+      poseDetector = new window.Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+      });
+      poseDetector.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        smoothSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+      poseDetector.onResults(onPoseResults);
+    } else {
+      console.warn('MediaPipe Pose CDN not yet loaded on window.');
+    }
+  } catch (err) {
+    console.warn('MediaPipe initialization note:', err);
+  }
+}
+
+/**
  * Initialize Application
  */
 async function initApp() {
-  setupEventListeners();
-  updateAthleteUI();
-  initTelemetryChart();
-  initMediaPipePose();
-  initSettingsUI();
+  try { setupEventListeners(); } catch (e) { console.error('setupEventListeners:', e); }
+  try { updateAthleteUI(); } catch (e) { console.error('updateAthleteUI:', e); }
+  try { initTelemetryChart(); } catch (e) { console.error('initTelemetryChart:', e); }
+  try { initMediaPipePose(); } catch (e) { console.error('initMediaPipePose:', e); }
+  try { initSettingsUI(); } catch (e) { console.error('initSettingsUI:', e); }
   
+  // Launch Demo Simulation immediately
   switchVideoSource('demo');
 }
 
@@ -1416,32 +1443,64 @@ function initTelemetryChart() {
 }
 
 /**
- * Draws Cyber Backdrop
+ * Draws Cyber Biomechanical Laboratory Backdrop
  */
 function drawCyberBackdrop(c, w, h) {
-  const grad = c.createRadialGradient(w / 2, h / 2, 50, w / 2, h / 2, w * 0.7);
-  grad.addColorStop(0, '#0c1527');
-  grad.addColorStop(1, '#050811');
+  // Deep Cyber Laboratory Radial Gradient
+  const grad = c.createRadialGradient(w / 2, h * 0.45, 40, w / 2, h * 0.5, w * 0.75);
+  grad.addColorStop(0, '#0f172a');
+  grad.addColorStop(0.5, '#090e1a');
+  grad.addColorStop(1, '#030712');
   c.fillStyle = grad;
   c.fillRect(0, 0, w, h);
 
-  c.strokeStyle = 'rgba(6, 182, 212, 0.12)';
-  c.lineWidth = 1;
-  const horizonY = h * 0.75;
+  // Subtle sports laboratory perspective grid
+  c.save();
+  const horizonY = h * 0.78;
   
-  for (let x = 0; x <= w; x += 40) {
+  // Perspective Floor Grid Lines
+  c.strokeStyle = 'rgba(6, 182, 212, 0.14)';
+  c.lineWidth = 1.2;
+  for (let x = -w * 0.5; x <= w * 1.5; x += 60) {
     c.beginPath();
-    c.moveTo(w / 2, horizonY);
+    c.moveTo(w / 2, horizonY * 0.95);
     c.lineTo(x, h);
     c.stroke();
   }
 
-  for (let y = horizonY; y <= h; y += 15) {
+  // Horizontal Floor Rings / Grids
+  for (let y = horizonY; y <= h; y += (h - horizonY) / 6) {
     c.beginPath();
     c.moveTo(0, y);
     c.lineTo(w, y);
     c.stroke();
   }
+
+  // Circular Biomechanical Calibration Target Ring on Floor
+  const platCenterY = h * 0.88;
+  const platRadiusX = w * 0.28;
+  const platRadiusY = h * 0.08;
+
+  c.strokeStyle = 'rgba(6, 182, 212, 0.25)';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.ellipse(w / 2, platCenterY, platRadiusX, platRadiusY, 0, 0, 2 * Math.PI);
+  c.stroke();
+
+  c.strokeStyle = 'rgba(99, 102, 241, 0.2)';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.ellipse(w / 2, platCenterY, platRadiusX * 0.6, platRadiusY * 0.6, 0, 0, 2 * Math.PI);
+  c.stroke();
+
+  // Subtle Watermark Badge
+  c.fillStyle = 'rgba(6, 182, 212, 0.5)';
+  c.font = '600 11px Outfit, sans-serif';
+  c.textAlign = 'right';
+  c.fillText('⚡ BIOMECHANICAL MOTION LAB • SIMULATOR ACTIVE', w - 16, 24);
+  c.textAlign = 'left';
+
+  c.restore();
 }
 
 /**
