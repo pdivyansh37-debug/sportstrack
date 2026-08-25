@@ -24,6 +24,7 @@ import { AthleteProfileManager } from './athleteProfile.js?v=3.0';
 import { VoiceCoach } from './voiceCoach.js?v=3.0';
 import { ReportGenerator } from './reportGenerator.js?v=3.0';
 import { AlertManager } from './alertManager.js?v=3.0';
+import { AuthManager } from './auth.js?v=3.0';
 
 // Landmark Temporal Smoother for High-Accuracy Pose Tracking
 const landmarkSmoother = new LandmarkSmoother(0.40);
@@ -77,6 +78,7 @@ const state = {
 };
 
 // Sub-modules
+const authManager = new AuthManager();
 const athleteManager = new AthleteProfileManager();
 const voiceCoach = new VoiceCoach();
 const alertManager = new AlertManager();
@@ -93,9 +95,61 @@ const elements = {
   abilitySelect: document.getElementById('abilitySelect'),
   abilityGroup: document.getElementById('abilityGroup'),
   
+  // Authentication & User Profile Elements
+  loginPortal: document.getElementById('loginPortal'),
   athleteBadgeBtn: document.getElementById('athleteBadgeBtn'),
+  userHeaderAvatar: document.getElementById('userHeaderAvatar'),
   athleteHeaderName: document.getElementById('athleteHeaderName'),
   athleteHeaderSport: document.getElementById('athleteHeaderSport'),
+  userProfileContainer: document.querySelector('.user-profile-menu-container'),
+  userAccountDropdown: document.getElementById('userAccountDropdown'),
+  dropdownUserAvatar: document.getElementById('dropdownUserAvatar'),
+  dropdownUserName: document.getElementById('dropdownUserName'),
+  dropdownUserEmail: document.getElementById('dropdownUserEmail'),
+  dropdownUserProvider: document.getElementById('dropdownUserProvider'),
+  dropdownAthleteProfileBtn: document.getElementById('dropdownAthleteProfileBtn'),
+  dropdownGoogleConfigBtn: document.getElementById('dropdownGoogleConfigBtn'),
+  dropdownReportQuickBtn: document.getElementById('dropdownReportQuickBtn'),
+  dropdownSignOutBtn: document.getElementById('dropdownSignOutBtn'),
+  
+  // Login Portal Form Elements
+  authCardTitle: document.getElementById('authCardTitle'),
+  authCardSubtitle: document.getElementById('authCardSubtitle'),
+  authAlertBox: document.getElementById('authAlertBox'),
+  customGoogleSignInBtn: document.getElementById('customGoogleSignInBtn'),
+  googleSignInBtnMount: document.getElementById('googleSignInBtnMount'),
+  openGoogleConfigFromLoginBtn: document.getElementById('openGoogleConfigFromLoginBtn'),
+  tabSignInBtn: document.getElementById('tabSignInBtn'),
+  tabSignUpBtn: document.getElementById('tabSignUpBtn'),
+  signInForm: document.getElementById('signInForm'),
+  signUpForm: document.getElementById('signUpForm'),
+  loginEmail: document.getElementById('loginEmail'),
+  loginPassword: document.getElementById('loginPassword'),
+  togglePasswordBtn: document.getElementById('togglePasswordBtn'),
+  rememberMeCheck: document.getElementById('rememberMeCheck'),
+  forgotPasswordBtn: document.getElementById('forgotPasswordBtn'),
+  regName: document.getElementById('regName'),
+  regEmail: document.getElementById('regEmail'),
+  regRole: document.getElementById('regRole'),
+  regSport: document.getElementById('regSport'),
+  regPassword: document.getElementById('regPassword'),
+  guestLoginBtn: document.getElementById('guestLoginBtn'),
+  
+  // Google Cloud Setup Modal
+  googleConfigModal: document.getElementById('googleConfigModal'),
+  closeGoogleConfigModalBtn: document.getElementById('closeGoogleConfigModalBtn'),
+  googleConfigForm: document.getElementById('googleConfigForm'),
+  googleClientIdInput: document.getElementById('googleClientIdInput'),
+  googleConfigStatus: document.getElementById('googleConfigStatus'),
+  resetGoogleClientIdBtn: document.getElementById('resetGoogleClientIdBtn'),
+  
+  // Forgot Password Modal
+  forgotPassModal: document.getElementById('forgotPassModal'),
+  closeForgotPassModalBtn: document.getElementById('closeForgotPassModalBtn'),
+  forgotPassForm: document.getElementById('forgotPassForm'),
+  forgotEmailInput: document.getElementById('forgotEmailInput'),
+  forgotPassFeedback: document.getElementById('forgotPassFeedback'),
+
   reportBtn: document.getElementById('reportBtn'),
   settingsBtn: document.getElementById('settingsBtn'),
   
@@ -235,13 +289,390 @@ function initMediaPipePose() {
  */
 async function initApp() {
   try { setupEventListeners(); } catch (e) { console.error('setupEventListeners:', e); }
-  try { updateAthleteUI(); } catch (e) { console.error('updateAthleteUI:', e); }
+  try { initAuthUI(); } catch (e) { console.error('initAuthUI:', e); }
   try { initTelemetryChart(); } catch (e) { console.error('initTelemetryChart:', e); }
   try { initMediaPipePose(); } catch (e) { console.error('initMediaPipePose:', e); }
   try { initSettingsUI(); } catch (e) { console.error('initSettingsUI:', e); }
   
-  // Launch Demo Simulation immediately
+  // Verify login status
+  if (authManager.isLoggedIn()) {
+    const user = authManager.getCurrentUser();
+    if (elements.loginPortal) elements.loginPortal.classList.remove('active');
+    updateUserHeaderUI();
+    athleteManager.ensureAthleteForUser(user);
+    updateAthleteUI();
+    switchVideoSource('demo');
+  } else {
+    if (elements.loginPortal) elements.loginPortal.classList.add('active');
+    updateAthleteUI();
+  }
+}
+
+/**
+ * Setup Authentication UI and Listeners
+ */
+function initAuthUI() {
+  // Try initializing Google Identity Services button
+  setTimeout(() => {
+    authManager.initGoogleIdentity('googleSignInBtnMount');
+  }, 300);
+
+  // Subscribe to auth state changes
+  authManager.onAuthChange((event, user) => {
+    if (event === 'login' || event === 'update') {
+      updateUserHeaderUI();
+    }
+  });
+
+  // Dropdown toggle on user profile button
+  if (elements.athleteBadgeBtn) {
+    elements.athleteBadgeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (elements.userProfileContainer) {
+        elements.userProfileContainer.classList.toggle('open');
+      }
+    });
+  }
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    if (elements.userProfileContainer && !elements.userProfileContainer.contains(e.target)) {
+      elements.userProfileContainer.classList.remove('open');
+    }
+  });
+
+  // Dropdown menu actions
+  if (elements.dropdownAthleteProfileBtn) {
+    elements.dropdownAthleteProfileBtn.addEventListener('click', () => {
+      if (elements.userProfileContainer) elements.userProfileContainer.classList.remove('open');
+      openAthleteModal();
+    });
+  }
+
+  if (elements.dropdownGoogleConfigBtn) {
+    elements.dropdownGoogleConfigBtn.addEventListener('click', () => {
+      if (elements.userProfileContainer) elements.userProfileContainer.classList.remove('open');
+      openGoogleConfigModal();
+    });
+  }
+
+  if (elements.dropdownReportQuickBtn) {
+    elements.dropdownReportQuickBtn.addEventListener('click', () => {
+      if (elements.userProfileContainer) elements.userProfileContainer.classList.remove('open');
+      showBiomechanicalReport();
+    });
+  }
+
+  if (elements.dropdownSignOutBtn) {
+    elements.dropdownSignOutBtn.addEventListener('click', () => {
+      handleSignOut();
+    });
+  }
+
+  // Tab switcher in login portal
+  if (elements.tabSignInBtn && elements.tabSignUpBtn) {
+    elements.tabSignInBtn.addEventListener('click', () => {
+      elements.tabSignInBtn.classList.add('active');
+      elements.tabSignUpBtn.classList.remove('active');
+      if (elements.signInForm) elements.signInForm.style.display = 'flex';
+      if (elements.signUpForm) elements.signUpForm.style.display = 'none';
+      if (elements.authCardTitle) elements.authCardTitle.textContent = 'Sign In to Movement Lab';
+      if (elements.authCardSubtitle) elements.authCardSubtitle.textContent = 'Choose your authentication method to access real-time biomechanics';
+      clearAuthAlert();
+    });
+
+    elements.tabSignUpBtn.addEventListener('click', () => {
+      elements.tabSignUpBtn.classList.add('active');
+      elements.tabSignInBtn.classList.remove('active');
+      if (elements.signUpForm) elements.signUpForm.style.display = 'flex';
+      if (elements.signInForm) elements.signInForm.style.display = 'none';
+      if (elements.authCardTitle) elements.authCardTitle.textContent = 'Create Movement Lab Account';
+      if (elements.authCardSubtitle) elements.authCardSubtitle.textContent = 'Join the platform for AI knee valgus screening and inclusive coaching';
+      clearAuthAlert();
+    });
+  }
+
+  // Google Sign-In button click
+  if (elements.customGoogleSignInBtn) {
+    elements.customGoogleSignInBtn.addEventListener('click', async () => {
+      try {
+        showAuthAlert('Connecting to Google Identity Services...', 'info');
+        const res = await authManager.signInWithGooglePrompt();
+        if (res && res.user) {
+          if (res.isSimulated) {
+            showAuthAlert('Signed in with Google Simulation Account! (Configure your Google Cloud Client ID anytime via Settings)', 'success');
+          } else {
+            showAuthAlert('Google authentication verified successfully!', 'success');
+          }
+          setTimeout(() => handleAuthLogin(res.user), 450);
+        }
+      } catch (err) {
+        showAuthAlert(err.message || 'Google sign-in encountered an error.', 'error');
+      }
+    });
+  }
+
+  // Open Google Config Modal from Login Portal link
+  if (elements.openGoogleConfigFromLoginBtn) {
+    elements.openGoogleConfigFromLoginBtn.addEventListener('click', openGoogleConfigModal);
+  }
+
+  // Sign In form submit
+  if (elements.signInForm) {
+    elements.signInForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = elements.loginEmail ? elements.loginEmail.value : '';
+      const password = elements.loginPassword ? elements.loginPassword.value : '';
+      const remember = elements.rememberMeCheck ? elements.rememberMeCheck.checked : true;
+      try {
+        const user = authManager.signInWithCredentials(email, password, remember);
+        showAuthAlert('Welcome back! Entering Movement Lab...', 'success');
+        setTimeout(() => handleAuthLogin(user), 350);
+      } catch (err) {
+        showAuthAlert(err.message, 'error');
+      }
+    });
+  }
+
+  // Sign Up form submit
+  if (elements.signUpForm) {
+    elements.signUpForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = elements.regName ? elements.regName.value : '';
+      const email = elements.regEmail ? elements.regEmail.value : '';
+      const password = elements.regPassword ? elements.regPassword.value : '';
+      const role = elements.regRole ? elements.regRole.value : 'Athlete / Player';
+      const sport = elements.regSport ? elements.regSport.value : 'basketball';
+      try {
+        const user = authManager.signUp(name, email, password, role, sport);
+        showAuthAlert('Account created successfully! Entering Movement Lab...', 'success');
+        setTimeout(() => handleAuthLogin(user), 400);
+      } catch (err) {
+        showAuthAlert(err.message, 'error');
+      }
+    });
+  }
+
+  // Fast Guest / Demo Login button
+  if (elements.guestLoginBtn) {
+    elements.guestLoginBtn.addEventListener('click', () => {
+      const user = authManager.loginAsGuest();
+      showAuthAlert('Continuing as Demo Coach & Biomechanist...', 'info');
+      setTimeout(() => handleAuthLogin(user), 300);
+    });
+  }
+
+  // Password visibility toggle
+  if (elements.togglePasswordBtn && elements.loginPassword) {
+    elements.togglePasswordBtn.addEventListener('click', () => {
+      const isPass = elements.loginPassword.type === 'password';
+      elements.loginPassword.type = isPass ? 'text' : 'password';
+      elements.togglePasswordBtn.textContent = isPass ? '🙈' : '👁️';
+    });
+  }
+
+  // Google Config Modal handlers
+  if (elements.closeGoogleConfigModalBtn) {
+    elements.closeGoogleConfigModalBtn.addEventListener('click', closeGoogleConfigModal);
+  }
+
+  if (elements.googleConfigForm) {
+    elements.googleConfigForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const newId = elements.googleClientIdInput ? elements.googleClientIdInput.value : '';
+      authManager.setGoogleClientId(newId);
+      if (elements.googleConfigStatus) {
+        elements.googleConfigStatus.textContent = authManager.isGoogleConfigured()
+          ? '✅ Google OAuth 2.0 Client ID saved & initialized!'
+          : 'ℹ️ Saved default placeholder.';
+      }
+      setTimeout(() => {
+        closeGoogleConfigModal();
+        authManager.initGoogleIdentity('googleSignInBtnMount');
+      }, 700);
+    });
+  }
+
+  if (elements.resetGoogleClientIdBtn) {
+    elements.resetGoogleClientIdBtn.addEventListener('click', () => {
+      authManager.setGoogleClientId('');
+      if (elements.googleClientIdInput) {
+        elements.googleClientIdInput.value = authManager.getGoogleClientId();
+      }
+      if (elements.googleConfigStatus) {
+        elements.googleConfigStatus.textContent = 'ℹ️ Reset to default placeholder.';
+      }
+      authManager.initGoogleIdentity('googleSignInBtnMount');
+    });
+  }
+
+  // Forgot Password modal
+  if (elements.forgotPasswordBtn) {
+    elements.forgotPasswordBtn.addEventListener('click', openForgotPassModal);
+  }
+  if (elements.closeForgotPassModalBtn) {
+    elements.closeForgotPassModalBtn.addEventListener('click', closeForgotPassModal);
+  }
+  if (elements.forgotPassForm) {
+    elements.forgotPassForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (elements.forgotPassFeedback) {
+        elements.forgotPassFeedback.style.display = 'block';
+        elements.forgotPassFeedback.className = 'auth-alert-box success';
+        elements.forgotPassFeedback.textContent = 'Password reset instructions dispatched to your email address (or use Demo User: marcus.vance@sportsbiomechanics.io / password123).';
+      }
+      setTimeout(closeForgotPassModal, 2200);
+    });
+  }
+}
+
+function openGoogleConfigModal() {
+  if (elements.googleClientIdInput) {
+    elements.googleClientIdInput.value = authManager.getGoogleClientId() || '';
+  }
+  if (elements.googleConfigStatus) {
+    elements.googleConfigStatus.textContent = authManager.isGoogleConfigured()
+      ? '✅ Connected with Google Cloud Client ID'
+      : 'ℹ️ Placeholder active (Simulated Google authentication available)';
+  }
+  if (elements.googleConfigModal) {
+    elements.googleConfigModal.classList.add('active');
+  }
+}
+
+function closeGoogleConfigModal() {
+  if (elements.googleConfigModal) {
+    elements.googleConfigModal.classList.remove('active');
+  }
+}
+
+function openForgotPassModal() {
+  if (elements.forgotPassFeedback) {
+    elements.forgotPassFeedback.style.display = 'none';
+  }
+  if (elements.forgotPassModal) {
+    elements.forgotPassModal.classList.add('active');
+  }
+}
+
+function closeForgotPassModal() {
+  if (elements.forgotPassModal) {
+    elements.forgotPassModal.classList.remove('active');
+  }
+}
+
+function showAuthAlert(message, type = 'error') {
+  if (!elements.authAlertBox) return;
+  elements.authAlertBox.textContent = message;
+  elements.authAlertBox.className = `auth-alert-box ${type}`;
+  elements.authAlertBox.style.display = 'block';
+}
+
+function clearAuthAlert() {
+  if (elements.authAlertBox) {
+    elements.authAlertBox.style.display = 'none';
+    elements.authAlertBox.textContent = '';
+  }
+}
+
+function updateUserHeaderUI() {
+  const user = authManager.getCurrentUser();
+  if (!user) return;
+
+  if (elements.athleteHeaderName) {
+    elements.athleteHeaderName.textContent = user.name;
+  }
+  if (elements.athleteHeaderSport) {
+    elements.athleteHeaderSport.textContent = user.provider === 'google' 
+      ? 'GOOGLE AUTH' 
+      : (user.sport ? user.sport.toUpperCase() : 'VERIFIED');
+  }
+  if (elements.userHeaderAvatar) {
+    if (user.avatarUrl) {
+      elements.userHeaderAvatar.innerHTML = `<img src="${user.avatarUrl}" alt="${user.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
+    } else {
+      const initials = user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '👤';
+      elements.userHeaderAvatar.textContent = initials;
+    }
+  }
+
+  // Dropdown UI
+  if (elements.dropdownUserName) elements.dropdownUserName.textContent = user.name;
+  if (elements.dropdownUserEmail) elements.dropdownUserEmail.textContent = user.email || 'No email specified';
+  if (elements.dropdownUserProvider) {
+    elements.dropdownUserProvider.textContent = user.provider === 'google' 
+      ? 'Google OAuth 2.0' 
+      : (user.role || 'Standard Account');
+  }
+  if (elements.dropdownUserAvatar) {
+    if (user.avatarUrl) {
+      elements.dropdownUserAvatar.innerHTML = `<img src="${user.avatarUrl}" alt="${user.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
+    } else {
+      const initials = user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '👤';
+      elements.dropdownUserAvatar.textContent = initials;
+    }
+  }
+}
+
+function handleAuthLogin(user) {
+  if (elements.loginPortal) {
+    elements.loginPortal.classList.remove('active');
+  }
+  
+  // Sync with athlete manager
+  const athlete = athleteManager.ensureAthleteForUser(user);
+  if (athlete && athlete.sport) {
+    state.currentSport = athlete.sport;
+    if (elements.sportSelect) elements.sportSelect.value = athlete.sport;
+  }
+
+  updateUserHeaderUI();
+  updateAthleteUI();
+  
+  // Start simulation stream
   switchVideoSource('demo');
+  
+  const firstName = user.name ? user.name.split(' ')[0] : 'Coach';
+  voiceCoach.speak(`Welcome to Movement Lab, ${firstName}`);
+}
+
+function stopAllStreams() {
+  if (cameraInstance) {
+    try { cameraInstance.stop(); } catch (e) {}
+    cameraInstance = null;
+  }
+  if (elements.webcam && elements.webcam.srcObject) {
+    try { elements.webcam.srcObject.getTracks().forEach(track => track.stop()); } catch (e) {}
+    elements.webcam.srcObject = null;
+  }
+  if (demoAnimationFrameId) {
+    cancelAnimationFrame(demoAnimationFrameId);
+    demoAnimationFrameId = null;
+  }
+  state.isStreaming = false;
+  state.isDemoRunning = false;
+}
+
+function handleSignOut() {
+  stopAllStreams();
+  authManager.signOut();
+  if (elements.userProfileContainer) {
+    elements.userProfileContainer.classList.remove('open');
+  }
+  if (elements.athleteModal) {
+    elements.athleteModal.classList.remove('active');
+  }
+  if (elements.reportModal) {
+    elements.reportModal.classList.remove('active');
+  }
+  if (elements.settingsModal) {
+    elements.settingsModal.classList.remove('active');
+  }
+  if (elements.loginPortal) {
+    elements.loginPortal.classList.add('active');
+  }
+  clearAuthAlert();
+  voiceCoach.speak('Signed out of Movement Lab');
 }
 
 /**
@@ -271,10 +702,6 @@ function setupEventListeners() {
       state.abilityProfile = e.target.value;
       updateExerciseDropdown();
     });
-  }
-
-  if (elements.athleteBadgeBtn) {
-    elements.athleteBadgeBtn.addEventListener('click', openAthleteModal);
   }
 
   if (elements.addNewAthleteBtn) {

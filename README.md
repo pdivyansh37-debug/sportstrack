@@ -33,6 +33,31 @@ An advanced, client-side real-time computer vision platform designed for athleti
 ### 5. ⏱️ Video Scrubber & Peak Valgus Freeze-Frame
 - Upload game footage, scrub frame-by-frame with Slow-Motion (0.25x, 0.5x), and click **"⚡ Freeze at Peak Valgus"** to instantly jump to the exact moment of maximum injury risk.
 
+### 6. 🔐 Dual-Method Authentication (Google & Credentials)
+- **Sign In with Google**: Integrated with Google Identity Services (GIS) OAuth 2.0.
+- **Email & Password**: Local user registration, session persistence (`localStorage`), profile role/sport tagging, and password visibility toggle.
+- **Guest / Demo Mode**: Instant 1-click access for swift clinical evaluation.
+
+---
+
+## 🔑 How to Setup Google Cloud OAuth 2.0 (Google Authentication)
+
+To connect your own Google Cloud credentials to the login system:
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+2. Create or select your Google Cloud Project.
+3. Click **+ CREATE CREDENTIALS** &rarr; select **OAuth client ID**.
+   - If prompted, configure the **OAuth consent screen** (User Type: *External*, fill in App Name & Developer Email).
+4. Set **Application type** to **Web application**.
+5. Under **Authorized JavaScript origins**, add your deployment URLs:
+   - For local testing: `http://localhost:3000` or `http://127.0.0.1:5500`
+   - For production: `https://your-domain.vercel.app` or `https://your-domain.netlify.app`
+6. Click **Create** and copy your **Client ID** (ends in `.apps.googleusercontent.com`).
+7. Paste your Client ID into the app:
+   - Click **⚙️ Configure Google Cloud Client ID** on the login page or in the top right user menu.
+   - Or paste it directly into `auth.js` (`defaultGoogleClientId`).
+8. Click **Save** — Google Sign-In is now live!
+
 ---
 
 ## 🚀 How to Deploy in 60 Seconds
@@ -82,8 +107,10 @@ Open **[http://localhost:3000](http://localhost:3000)** in Chrome, Edge, or Safa
 ---
 
 ## 🧬 Tech Stack
+- **Authentication**: Google Identity Services (GIS SDK OAuth 2.0) + Local Credentials Engine
 - **Vision Engine**: MediaPipe Pose (33 3D Keypoint Landmark Model)
 - **Kinematics Engine**: Pure Vanilla JavaScript (FPPA math, LESS protocol, Jump kinematics)
 - **Audio Engine**: Web Speech API + Web Audio API Synthesis
 - **Visualization**: HTML5 Canvas HUD + Chart.js Real-Time Waveforms
 - **Styling**: Vanilla CSS (Glassmorphism, Cyber-Sports Dark Theme)
+

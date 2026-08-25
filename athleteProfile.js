@@ -150,4 +150,27 @@ export class AthleteProfileManager {
     this.save();
     return true;
   }
+
+  ensureAthleteForUser(user) {
+    if (!user || !user.name) return this.getActiveAthlete();
+    let athlete = this.athletes.find(a => a.name.toLowerCase() === user.name.toLowerCase() || a.id === 'user_' + user.id);
+    if (!athlete) {
+      athlete = {
+        id: 'user_' + user.id,
+        name: user.name,
+        sport: user.sport || 'basketball',
+        position: user.role || 'Athlete',
+        dominantLeg: 'Right',
+        injuryHistory: 'None (Preventative Screening)',
+        notes: `Account profile for ${user.email || user.name}`,
+        createdAt: new Date().toLocaleDateString(),
+        sessions: []
+      };
+      this.athletes.unshift(athlete);
+    }
+    this.activeAthleteId = athlete.id;
+    this.save();
+    return athlete;
+  }
 }
+
