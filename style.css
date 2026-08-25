@@ -1822,9 +1822,15 @@ main.app-main {
    ========================================================================== */
 .login-portal-backdrop {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 10000;
-  background: rgba(4, 7, 14, 0.94);
+  background: #04070e;
+  background: rgba(4, 7, 14, 0.96);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   display: flex;
@@ -1838,8 +1844,9 @@ main.app-main {
 }
 
 .login-portal-backdrop.active {
-  opacity: 1;
-  pointer-events: auto;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: flex !important;
 }
 
 .login-portal-container {

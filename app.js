@@ -18,13 +18,13 @@ import {
   RepetitionTracker,
   SyntheticPoseGenerator,
   LandmarkSmoother
-} from './kinematics.js?v=3.0';
+} from './kinematics.js?v=4.0';
 
-import { AthleteProfileManager } from './athleteProfile.js?v=3.0';
-import { VoiceCoach } from './voiceCoach.js?v=3.0';
-import { ReportGenerator } from './reportGenerator.js?v=3.0';
-import { AlertManager } from './alertManager.js?v=3.0';
-import { AuthManager } from './auth.js?v=3.0';
+import { AthleteProfileManager } from './athleteProfile.js?v=4.0';
+import { VoiceCoach } from './voiceCoach.js?v=4.0';
+import { ReportGenerator } from './reportGenerator.js?v=4.0';
+import { AlertManager } from './alertManager.js?v=4.0';
+import { AuthManager } from './auth.js?v=4.0';
 
 // Landmark Temporal Smoother for High-Accuracy Pose Tracking
 const landmarkSmoother = new LandmarkSmoother(0.40);
@@ -297,13 +297,19 @@ async function initApp() {
   // Verify login status
   if (authManager.isLoggedIn()) {
     const user = authManager.getCurrentUser();
-    if (elements.loginPortal) elements.loginPortal.classList.remove('active');
+    if (elements.loginPortal) {
+      elements.loginPortal.classList.remove('active');
+      elements.loginPortal.style.display = 'none';
+    }
     updateUserHeaderUI();
     athleteManager.ensureAthleteForUser(user);
     updateAthleteUI();
     switchVideoSource('demo');
   } else {
-    if (elements.loginPortal) elements.loginPortal.classList.add('active');
+    if (elements.loginPortal) {
+      elements.loginPortal.style.display = 'flex';
+      elements.loginPortal.classList.add('active');
+    }
     updateAthleteUI();
   }
 }
@@ -617,6 +623,11 @@ function updateUserHeaderUI() {
 function handleAuthLogin(user) {
   if (elements.loginPortal) {
     elements.loginPortal.classList.remove('active');
+    setTimeout(() => {
+      if (elements.loginPortal && authManager.isLoggedIn()) {
+        elements.loginPortal.style.display = 'none';
+      }
+    }, 400);
   }
   
   // Sync with athlete manager
@@ -669,7 +680,10 @@ function handleSignOut() {
     elements.settingsModal.classList.remove('active');
   }
   if (elements.loginPortal) {
-    elements.loginPortal.classList.add('active');
+    elements.loginPortal.style.display = 'flex';
+    requestAnimationFrame(() => {
+      elements.loginPortal.classList.add('active');
+    });
   }
   clearAuthAlert();
   voiceCoach.speak('Signed out of Movement Lab');
