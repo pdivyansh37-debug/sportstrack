@@ -54,49 +54,13 @@
 
     <!-- Header Actions -->
     <div class="header-actions">
-      <!-- User Profile & Account Menu -->
-      <div class="user-profile-menu-container">
-        <button id="athleteBadgeBtn" class="profile-badge-btn" title="Account & Athlete Profile Settings">
-          <span class="avatar-circle" id="userHeaderAvatar">👤</span>
-          <span class="profile-meta">
-            <span class="profile-name" id="athleteHeaderName">Demo Athlete</span>
-            <span class="profile-sport-tag" id="athleteHeaderSport">BASKETBALL</span>
-          </span>
-          <span class="dropdown-chevron">▾</span>
-        </button>
-
-        <!-- User Account Dropdown -->
-        <div id="userAccountDropdown" class="user-account-dropdown">
-          <div class="dropdown-user-header">
-            <div class="dropdown-avatar" id="dropdownUserAvatar">👤</div>
-            <div class="dropdown-user-details">
-              <div class="dropdown-name" id="dropdownUserName">Athlete User</div>
-              <div class="dropdown-email" id="dropdownUserEmail">athlete@adaptifit.ai</div>
-              <div class="dropdown-badge-pill" id="dropdownUserProvider">Google Verified</div>
-            </div>
-          </div>
-          <div class="dropdown-menu-list">
-            <button id="dropdownAthleteProfileBtn" class="dropdown-menu-item" type="button">
-              <span class="item-icon">👤</span>
-              <span class="item-text">Athlete Profiles & History</span>
-            </button>
-            <button id="dropdownGoogleConfigBtn" class="dropdown-menu-item" type="button">
-              <span class="item-icon">⚙️</span>
-              <span class="item-text">Google Cloud OAuth Settings</span>
-            </button>
-            <button id="dropdownReportQuickBtn" class="dropdown-menu-item" type="button">
-              <span class="item-icon">📋</span>
-              <span class="item-text">Biomechanical Assessment</span>
-            </button>
-            <div class="dropdown-menu-divider"></div>
-            <button id="dropdownSignOutBtn" class="dropdown-menu-item dropdown-danger" type="button">
-              <span class="item-icon">🚪</span>
-              <span class="item-text">Sign Out</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
+      <button id="athleteBadgeBtn" class="profile-badge-btn" title="Athlete / Patient Profile & Recovery History">
+        <span class="avatar-circle" id="userHeaderAvatar">👤</span>
+        <span class="profile-meta">
+          <span class="profile-name" id="athleteHeaderName">Demo Athlete</span>
+          <span class="profile-sport-tag" id="athleteHeaderSport">BASKETBALL</span>
+        </span>
+      </button>
       <button id="reportBtn" class="btn-icon btn-report-action" title="Biomechanical Assessment Report">
         <span class="btn-symbol">📋</span>
         <span class="btn-text">Report</span>
@@ -104,6 +68,10 @@
       <button id="settingsBtn" class="btn-icon btn-settings-action" title="System Settings • Voice Coaching, Alerts & Audio">
         <span class="btn-symbol">⚙️</span>
         <span class="btn-text">Settings</span>
+      </button>
+      <button id="signOutBtn" class="btn-icon" title="Sign Out of Movement Lab" style="border-color: rgba(239, 68, 68, 0.35); color: #fca5a5;">
+        <span class="btn-symbol">🚪</span>
+        <span class="btn-text">Sign Out</span>
       </button>
     </div>
   </header>

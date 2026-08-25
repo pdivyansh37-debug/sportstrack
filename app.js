@@ -101,16 +101,7 @@ const elements = {
   userHeaderAvatar: document.getElementById('userHeaderAvatar'),
   athleteHeaderName: document.getElementById('athleteHeaderName'),
   athleteHeaderSport: document.getElementById('athleteHeaderSport'),
-  userProfileContainer: document.querySelector('.user-profile-menu-container'),
-  userAccountDropdown: document.getElementById('userAccountDropdown'),
-  dropdownUserAvatar: document.getElementById('dropdownUserAvatar'),
-  dropdownUserName: document.getElementById('dropdownUserName'),
-  dropdownUserEmail: document.getElementById('dropdownUserEmail'),
-  dropdownUserProvider: document.getElementById('dropdownUserProvider'),
-  dropdownAthleteProfileBtn: document.getElementById('dropdownAthleteProfileBtn'),
-  dropdownGoogleConfigBtn: document.getElementById('dropdownGoogleConfigBtn'),
-  dropdownReportQuickBtn: document.getElementById('dropdownReportQuickBtn'),
-  dropdownSignOutBtn: document.getElementById('dropdownSignOutBtn'),
+  signOutBtn: document.getElementById('signOutBtn'),
   
   // Login Portal Form Elements
   authCardTitle: document.getElementById('authCardTitle'),
@@ -330,49 +321,14 @@ function initAuthUI() {
     }
   });
 
-  // Dropdown toggle on user profile button
+  // Athlete Profile button directly opens the profile modal
   if (elements.athleteBadgeBtn) {
-    elements.athleteBadgeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (elements.userProfileContainer) {
-        elements.userProfileContainer.classList.toggle('open');
-      }
-    });
+    elements.athleteBadgeBtn.addEventListener('click', openAthleteModal);
   }
 
-  // Close dropdown on outside click
-  document.addEventListener('click', (e) => {
-    if (elements.userProfileContainer && !elements.userProfileContainer.contains(e.target)) {
-      elements.userProfileContainer.classList.remove('open');
-    }
-  });
-
-  // Dropdown menu actions
-  if (elements.dropdownAthleteProfileBtn) {
-    elements.dropdownAthleteProfileBtn.addEventListener('click', () => {
-      if (elements.userProfileContainer) elements.userProfileContainer.classList.remove('open');
-      openAthleteModal();
-    });
-  }
-
-  if (elements.dropdownGoogleConfigBtn) {
-    elements.dropdownGoogleConfigBtn.addEventListener('click', () => {
-      if (elements.userProfileContainer) elements.userProfileContainer.classList.remove('open');
-      openGoogleConfigModal();
-    });
-  }
-
-  if (elements.dropdownReportQuickBtn) {
-    elements.dropdownReportQuickBtn.addEventListener('click', () => {
-      if (elements.userProfileContainer) elements.userProfileContainer.classList.remove('open');
-      showBiomechanicalReport();
-    });
-  }
-
-  if (elements.dropdownSignOutBtn) {
-    elements.dropdownSignOutBtn.addEventListener('click', () => {
-      handleSignOut();
-    });
+  // Header Sign Out button
+  if (elements.signOutBtn) {
+    elements.signOutBtn.addEventListener('click', handleSignOut);
   }
 
   // Tab switcher in login portal
@@ -599,23 +555,6 @@ function updateUserHeaderUI() {
     } else {
       const initials = user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '👤';
       elements.userHeaderAvatar.textContent = initials;
-    }
-  }
-
-  // Dropdown UI
-  if (elements.dropdownUserName) elements.dropdownUserName.textContent = user.name;
-  if (elements.dropdownUserEmail) elements.dropdownUserEmail.textContent = user.email || 'No email specified';
-  if (elements.dropdownUserProvider) {
-    elements.dropdownUserProvider.textContent = user.provider === 'google' 
-      ? 'Google OAuth 2.0' 
-      : (user.role || 'Standard Account');
-  }
-  if (elements.dropdownUserAvatar) {
-    if (user.avatarUrl) {
-      elements.dropdownUserAvatar.innerHTML = `<img src="${user.avatarUrl}" alt="${user.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
-    } else {
-      const initials = user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '👤';
-      elements.dropdownUserAvatar.textContent = initials;
     }
   }
 }
