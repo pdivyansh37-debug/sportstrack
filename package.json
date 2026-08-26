@@ -1,0 +1,40 @@
+{
+  "devDependencies": {
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  },
+  "name": "app",
+  "version": "1.0.0",
+  "description": "An advanced, client-side real-time computer vision platform designed for athletic knee injury prevention, dynamic knee valgus (FPPA) screening, LESS scoring, and adaptive inclusive fitness coaching.",
+  "main": "app.js",
+  "dependencies": {
+    "detect-libc": "^2.1.2",
+    "fdir": "^6.5.0",
+    "lightningcss": "^1.33.0",
+    "lightningcss-linux-x64-gnu": "^1.33.0",
+    "nanoid": "^3.3.18",
+    "picocolors": "^1.1.1",
+    "picomatch": "^4.0.7",
+    "postcss": "^8.5.26",
+    "rolldown": "^1.2.6",
+    "source-map-js": "^1.2.1",
+    "tinyglobby": "^0.2.17"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pdivyansh37-debug/sportstrack.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/pdivyansh37-debug/sportstrack/issues"
+  },
+  "homepage": "https://github.com/pdivyansh37-debug/sportstrack#readme"
+}
