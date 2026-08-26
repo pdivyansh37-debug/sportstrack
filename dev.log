@@ -2,8 +2,11 @@
 > app@1.0.0 dev
 > vite
 
+4:26:48 PM [vite] (client) Re-optimizing dependencies because lockfile has changed
 
-  VITE v8.2.2  ready in 252 ms
+  VITE v8.2.2  ready in 811 ms
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose
+4:32:23 PM [vite] (client) page reload kinematics.js
+4:33:42 PM [vite] (client) page reload app.js

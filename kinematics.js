@@ -1079,3 +1079,33 @@ export function evaluateACLRisk(landmarks, exerciseType = 'squat', sportId = 'ge
     }
   }
 
+/**
+ * Evaluates how well the user is framed within the camera view
+ */
+export function evaluateBodyFraming(landmarks, canvasWidth, canvasHeight) {
+  const nose = landmarks[POSE_LANDMARKS.NOSE];
+  const lAnkle = landmarks[POSE_LANDMARKS.LEFT_ANKLE];
+  const rAnkle = landmarks[POSE_LANDMARKS.RIGHT_ANKLE];
+  const lHip = landmarks[POSE_LANDMARKS.LEFT_HIP];
+  const rHip = landmarks[POSE_LANDMARKS.RIGHT_HIP];
+
+  if (!nose || !lHip || !rHip) return { state: 'NO_PERSON', text: '👤 Center in Frame', color: '#f59e0b' };
+
+  const midHipY = (lHip.y + rHip.y) / 2;
+  const midHipX = (lHip.x + rHip.x) / 2;
+  const anklesVisible = (lAnkle && lAnkle.visibility > 0.4) || (rAnkle && rAnkle.visibility > 0.4);
+
+  if (midHipY > 0.85 || !anklesVisible) {
+    return { state: 'TOO_CLOSE', text: '⚠️ Step Back (Show Knees)', color: '#ef4444' };
+  }
+
+  const heightRatio = Math.abs((lAnkle ? lAnkle.y : 0.9) - nose.y);
+  if (heightRatio < 0.35) {
+    return { state: 'TOO_FAR', text: '🔍 Move Closer', color: '#f59e0b' };
+  }
+
+  if (midHipX < 0.25) return { state: 'OFF_CENTER_LEFT', text: '➡️ Move Right', color: '#3b82f6' };
+  if (midHipX > 0.75) return { state: 'OFF_CENTER_RIGHT', text: '⬅️ Move Left', color: '#3b82f6' };
+
+  return { state: 'PERFECT', text: '🎯 Perfectly Aligned', color: '#10b981' };
+}

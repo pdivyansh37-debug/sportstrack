@@ -17,7 +17,8 @@ import {
   JumpKinematicsTracker,
   RepetitionTracker,
   SyntheticPoseGenerator,
-  LandmarkSmoother
+  LandmarkSmoother,
+  evaluateBodyFraming
 } from './kinematics.js';
 
 import { drawCyberBackdrop, drawBodySilhouetteStencil, drawCenterAlignmentGrid, drawBiomechanicalSkeleton, drawAngleAnnotations } from './renderer.js';
