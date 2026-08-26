@@ -25,7 +25,7 @@
   <!-- SheetJS for Native Multi-Sheet Excel (.xlsx) Export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
 
-  <link rel="stylesheet" href="style.css?v=4.0" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <!-- Top Navigation Bar -->
@@ -159,7 +159,8 @@
         <!-- Video Feeds -->
         <video id="webcam" autoplay playsinline muted style="display: none;"></video>
         <video id="videoUploadPlayer" playsinline loop muted style="display: none;"></video>
-        <canvas id="overlay"></canvas>
+        <canvas id="backgroundCanvas" style="position: absolute; top: 0; left: 0; z-index: -1;"></canvas>
+        <canvas id="overlay" style="position: relative; z-index: 1;"></canvas>
       </div>
 
       <!-- Video Scrubber & Slow-Mo Controls Bar -->
@@ -933,6 +934,6 @@
     </div>
   </div>
 
-  <script type="module" src="app.js?v=4.0"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
